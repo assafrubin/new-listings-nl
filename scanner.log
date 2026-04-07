@@ -1,0 +1,398 @@
+2026-04-04 17:08:28,915  INFO      Created default config.json — please fill in credentials.
+2026-04-04 17:08:28,915  INFO      === Scan started ===
+2026-04-04 17:08:28,915  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amsterdam%22%5D&price_min=1500&price_max=2500&rooms_min=1&availability=available
+2026-04-04 17:08:29,092  INFO      Funda (HTML fallback): found 0 listings
+2026-04-04 17:08:29,093  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:08:29,201  WARNING   GET failed for https://www.pararius.nl/huurwoningen/amsterdam/1500-2500: 403 Client Error: Forbidden for url: https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:08:29,202  INFO      Total listings found: 0
+2026-04-04 17:08:29,203  INFO      New listings: 0
+2026-04-04 17:08:29,203  INFO      No new listings.
+2026-04-04 17:08:29,203  INFO      === Scan complete ===
+
+2026-04-04 17:18:33,758  INFO      === Scan started ===
+2026-04-04 17:18:34,641  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:18:37,524  INFO      Pararius: 30 listing cards found
+2026-04-04 17:18:37,564  INFO      Total listings fetched: 30
+2026-04-04 17:18:37,564  INFO      New listings: 30
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Huis Realengracht 17 — € 2.500 per maand  https://www.pararius.nl/huis-te-huur/amsterdam/33da1180/realengracht
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Wiborgeiland 184 — € 2.150 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/350d813d/wiborgeiland
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Hoogoord — € 2.495 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/8bef79ac/hoogoord
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Rietwijkerstraat — € 2.250 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2a62d10b/rietwijkerstraat
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Marnixstraat — € 2.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/ecff8b03/marnixstraat
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Oostenburgervoorstraat — € 2.400 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/957cd106/oostenburgervoorstraat
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Hoofdweg 230 2 — € 2.100 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2ab4ee90/hoofdweg
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Brouwersgracht — € 2.300 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/d7255f41/brouwersgracht
+2026-04-04 17:18:37,564  INFO        NEW  [Pararius] Appartement Haarlemmerweg 1426 — € 1.952 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/b1d8cf04/haarlemmerweg
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Binnendraaierij — € 2.350 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/1212c135/binnendraaierij
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Stuurmankade 26 — € 2.000 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/bfc94697/stuurmankade
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Theodoor van Hoytemastraat — € 2.400 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/589e0ce7/theodoor-van-hoytemastraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Haparandaweg 104 — € 1.677 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/0997863c/haparandaweg
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Haarlemmerweg 970 — € 1.821 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/9406e366/haarlemmerweg
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Jacques Veltmanstraat 215 — € 2.400 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/aaaa2b9e/jacques-veltmanstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Lia Doranastraat 39 — € 1.550 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/5095e3ee/lia-doranastraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Woutertje Pietersestraat 18 3 — € 2.300 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/8e92c2cd/woutertje-pietersestraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Woutertje Pietersestraat 40 1 — € 2.100 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/4bad5b0d/woutertje-pietersestraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Bouvigne 27 1 — € 2.300 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/d5833365/bouvigne
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Louis Schottingstraat — € 2.250 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/577c16a1/louis-schottingstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Nassaukade 60 H — € 2.250 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/dca47c3a/nassaukade
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Ruysdaelstraat — € 2.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/ad89e0b8/ruysdaelstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Groen van Prinstererstraat 79 — € 2.425 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2d3fe254/groen-van-prinstererstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Dirk Vreekenstraat 80 — € 2.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/cf8be24e/dirk-vreekenstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Sloterkade 136 B — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/5353cce0/sloterkade
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Preangerstraat 11 D — € 1.710 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/dd97cbee/preangerstraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Admiraal De Ruijterweg 161 3 — € 2.495 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/8d2bb41f/admiraal-de-ruijterweg
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Spuistraat 234 F — € 2.325 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/4ef506cb/spuistraat
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Jacob Catskade 43 2 — € 2.350 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2f566e3f/jacob-catskade
+2026-04-04 17:18:37,565  INFO        NEW  [Pararius] Appartement Bijlmerplein 858 T 1 — € 2.100 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/022c2920/bijlmerplein
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:18:37,565  WARNING   Email skipped — no Gmail app password in config.json
+2026-04-04 17:18:37,566  INFO      === Scan complete ===
+
+2026-04-04 17:23:49,067  INFO      Email sent.
+2026-04-04 17:23:49,069  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:28,375  INFO      === Scan started ===
+2026-04-04 17:35:29,507  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:35:32,537  INFO      Pararius: 30 listing cards found
+2026-04-04 17:35:32,607  INFO      Funda (Chrome): 5 listings loaded.
+2026-04-04 17:35:32,607  INFO      Total listings fetched: 35
+2026-04-04 17:35:32,607  INFO      New listings: 5
+2026-04-04 17:35:32,607  INFO        NEW  [Funda] Pietersbergweg Amsterdam — € 2,164 /mth  https://www.funda.nl/detail/huur/amsterdam/appartement-pietersbergweg/43725910/
+2026-04-04 17:35:32,607  INFO        NEW  [Funda] Ceintuurbaan 5-3 Amsterdam — € 2,650 /mth  https://www.funda.nl/detail/huur/amsterdam/appartement-ceintuurbaan-5-3/89737978/
+2026-04-04 17:35:32,607  INFO        NEW  [Funda] Karspeldreef 16-B53 Amsterdam — € 1,306 /mth  https://www.funda.nl/detail/huur/amsterdam/appartement-karspeldreef-16-b53/43284942/
+2026-04-04 17:35:32,607  INFO        NEW  [Funda] Dijkmeerlaan 24 Amsterdam —   https://www.funda.nl/detail/huur/amsterdam/appartement-dijkmeerlaan-24/43397591/
+2026-04-04 17:35:32,607  INFO        NEW  [Funda] Pieter Cornelisz Hooftstraat 51-B Amsterdam —   https://www.funda.nl/detail/huur/amsterdam/appartement-pieter-cornelisz-hooftstraat-51-b/43356278/
+2026-04-04 17:35:32,607  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:32,607  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:32,607  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:32,608  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:32,608  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:35:33,301  INFO      Email sent.
+2026-04-04 17:35:33,302  INFO      === Scan complete ===
+
+2026-04-04 17:44:21,626  INFO      === Scan started ===
+2026-04-04 17:44:22,963  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:44:25,855  INFO      Pararius: 30 listing cards found
+2026-04-04 17:44:25,902  INFO      Pararius fetched: 30
+2026-04-04 17:44:25,902  INFO      Funda (Chrome): 1 new listings loaded.
+2026-04-04 17:44:25,902  INFO      New listings: 1 (0 Pararius, 1 Funda)
+2026-04-04 17:44:25,902  INFO        NEW  [Funda] Gamerenstraat 20-B, 1087 VN Amsterdam — €3,500 /month  https://www.funda.nl/detail/huur/amsterdam/appartement-gamerenstraat-20-b/89761197/
+2026-04-04 17:44:25,902  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-04 17:44:26,788  INFO      Email sent to assafrubin@gmail.com, rotem.aviv29@gmail.com.
+2026-04-04 17:44:26,789  INFO      === Scan complete ===
+
+2026-04-04 17:51:33,288  INFO      === Scan started ===
+2026-04-04 17:51:34,649  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 17:51:38,585  INFO      Pararius: 30 listing cards found
+2026-04-04 17:51:38,657  INFO      Pararius fetched: 30
+2026-04-04 17:51:38,657  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-04 17:51:38,657  INFO      New listings: 0 (0 Pararius, 0 Funda)
+2026-04-04 17:51:38,657  INFO      No new listings.
+2026-04-04 17:51:38,660  INFO      === Scan complete ===
+
+2026-04-04 18:06:55,539  INFO      === Scan started ===
+2026-04-04 18:06:56,997  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 18:07:00,571  INFO      Pararius: 30 listing cards found
+2026-04-04 18:07:00,640  INFO      Pararius fetched: 30
+2026-04-04 18:07:00,641  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-04 18:07:00,641  INFO      New listings: 0 (0 Pararius, 0 Funda)
+2026-04-04 18:07:00,641  INFO      No new listings.
+2026-04-04 18:07:00,643  INFO      === Scan complete ===
+
+2026-04-04 18:08:03,800  INFO      === Scan started ===
+2026-04-04 18:08:04,964  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-04 18:08:07,932  INFO      Pararius: 30 listing cards found
+2026-04-04 18:08:07,998  INFO      Pararius fetched: 30
+2026-04-04 18:08:07,999  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-04 18:08:07,999  INFO      New listings: 0 (0 Pararius, 0 Funda)
+2026-04-04 18:08:07,999  INFO      No new listings.
+2026-04-04 18:08:08,001  INFO      === Scan complete ===
+
+2026-04-07 19:40:25,819  INFO      === Scan started ===
+2026-04-07 19:40:41,375  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam/1500-2500
+2026-04-07 19:40:44,423  INFO      Pararius: 31 listing cards found
+2026-04-07 19:40:44,495  INFO      Pararius fetched: 31
+2026-04-07 19:40:44,495  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-07 19:40:44,495  INFO      New listings: 11 (11 Pararius, 0 Funda)
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Singel 103 1V — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/31d05850/singel
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Linnaeusstraat 83 1 — € 2.350 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/d5534c6b/linnaeusstraat
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Singel — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/55f41f22/singel
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Barcelonaplein 67 — € 2.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/677dc714/barcelonaplein
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Esplanade de Meer — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/34334699/esplanade-de-meer
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Levantkade — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/5ff35ffa/levantkade
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Ferguutstraat 5 H — € 2.349 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/061448db/ferguutstraat
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Chestertonlaan 18 — € 2.050 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/a7a481a4/chestertonlaan
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Vaartstraat — € 2.350 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2c7fff4f/vaartstraat
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Appartement Wijdesteeg — € 2.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/f441845c/wijdesteeg
+2026-04-07 19:40:44,495  INFO        NEW  [Pararius] Huis Karspeldreef 4 104 — € 1.900 per maand  https://www.pararius.nl/huis-te-huur/amsterdam/a90d0a7b/karspeldreef
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:44,495  WARNING   WhatsApp skipped — no CallMeBot API key in config.json
+2026-04-07 19:40:45,682  INFO      Email sent to assafrubin@gmail.com, rotem.aviv29@gmail.com.
+2026-04-07 19:40:45,704  INFO      === Scan complete ===
+
+2026-04-07 20:09:10,902  INFO      === Scan started ===
+2026-04-07 20:09:10,903  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht']
+2026-04-07 20:09:12,313  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 20:09:15,175  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 20:09:15,206  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 20:09:17,314  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 20:09:17,314  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 20:09:19,361  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 20:09:19,431  INFO      Pararius fetched: 32
+2026-04-07 20:09:19,431  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-07 20:09:19,431  INFO      New listings: 22 (22 Pararius, 0 Funda)
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Alexanderkade — € 2.995 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/2a66f6cc/alexanderkade
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Cornelis Trooststraat 64 H — € 2.800 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/21db5426/cornelis-trooststraat
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Achillesstraat — € 2.725 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/5809077e/achillesstraat
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Achillesstraat — € 3.325 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/887430a3/achillesstraat
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Vrijzicht — € 2.600 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/b80a4b52/vrijzicht
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Frederiksplein 47 D — € 3.650 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/6b5c7937/frederiksplein
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Jan van Eijckstraat — € 3.475 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/7c0546ca/jan-van-eijckstraat
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Valkenburgerstraat 61 — Prijs op aanvraag  https://www.pararius.nl/appartement-te-huur/amsterdam/94a5ed5a/valkenburgerstraat
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Herengracht 579 B — € 5.850 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/a6dc77a5/herengracht
+2026-04-07 20:09:19,431  INFO        NEW  [Pararius] Appartement Pieter Aertszstraat — € 2.700 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/1e6eb698/pieter-aertszstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Purperhoedenveem 136 — € 2.844 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/eed61304/purperhoedenveem
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Ton de Leeuwstraat — € 3.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/3c9d30cc/ton-de-leeuwstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Eerste Constantijn Huygensstraat 33 2 — € 2.750 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/3c2780df/eerste-constantijn-huygensstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Afrikanerplein — € 3.195 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/4711cf41/afrikanerplein
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Rustenburgerstraat — € 2.625 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/5159c4fc/rustenburgerstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Vechtstraat 108 HS — € 2.650 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/81080ef6/vechtstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Geulstraat — € 2.950 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/d11828cb/geulstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Eemsstraat — € 3.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/49df997d/eemsstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Hobbemakade — € 2.650 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/43ab6a5f/hobbemakade
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Tweede Hugo de Grootstraat 28 B — € 2.600 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/4e291469/tweede-hugo-de-grootstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Ferdinand Bolstraat 136 B — € 5.450 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/bb466fc4/ferdinand-bolstraat
+2026-04-07 20:09:19,432  INFO        NEW  [Pararius] Appartement Kanaalstraat — € 4.500 per maand  https://www.pararius.nl/appartement-te-huur/amsterdam/8ad25ea6/kanaalstraat
+2026-04-07 20:09:19,441  INFO        → rotem.aviv29@gmail.com / John Drone: 12 match(es)
+2026-04-07 20:09:20,209  INFO      Email sent to rotem.aviv29@gmail.com.
+2026-04-07 20:09:20,210  INFO        → assafrubin@gmail.com / Alin Green Hair: 1 match(es)
+2026-04-07 20:09:20,842  INFO      Email sent to assafrubin@gmail.com.
+2026-04-07 20:09:20,853  INFO      === Scan complete ===
+
+2026-04-07 20:14:31,610  INFO      === Scan started ===
+2026-04-07 20:14:31,612  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht', 'den hague', 'gouda']
+2026-04-07 20:14:32,981  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 20:14:36,020  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 20:14:36,052  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 20:14:38,172  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 20:14:38,173  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 20:14:40,228  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 20:14:40,228  INFO      Pararius → https://www.pararius.nl/huurwoningen/den hague
+2026-04-07 20:14:42,298  INFO      Pararius [den hague]: 0 listing cards found
+2026-04-07 20:14:42,298  INFO      Pararius → https://www.pararius.nl/huurwoningen/gouda
+2026-04-07 20:14:44,362  INFO      Pararius [gouda]: 0 listing cards found
+2026-04-07 20:14:44,424  INFO      Pararius fetched: 32
+2026-04-07 20:14:44,424  INFO      Funda: no new listings file found (Chrome may not be open).
+2026-04-07 20:14:44,424  INFO      New listings: 0 (0 Pararius, 0 Funda)
+2026-04-07 20:14:44,424  INFO      No new listings.
+2026-04-07 20:14:44,431  INFO      === Scan complete ===
+
+2026-04-07 20:32:52,576  INFO      === Scan started ===
+2026-04-07 20:32:52,582  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht', 'den-haag', 'gouda']
+2026-04-07 20:32:53,987  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 20:32:56,937  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 20:32:56,969  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 20:32:59,137  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 20:32:59,137  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 20:33:01,202  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 20:33:01,203  INFO      Pararius → https://www.pararius.nl/huurwoningen/den-haag
+2026-04-07 20:33:03,267  INFO      Pararius [den-haag]: 0 listing cards found
+2026-04-07 20:33:03,269  INFO      Pararius → https://www.pararius.nl/huurwoningen/gouda
+2026-04-07 20:33:05,332  INFO      Pararius [gouda]: 0 listing cards found
+2026-04-07 20:33:51,712  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amsterdam%22%5D&availability=%5B%22available%22%5D
+2026-04-07 20:33:55,608  INFO      Funda [amsterdam]: 0 listing cards found
+2026-04-07 20:33:55,608  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amstelveen%22%5D&availability=%5B%22available%22%5D
+2026-04-07 20:33:58,797  INFO      Funda [amstelveen]: 0 listing cards found
+2026-04-07 20:33:58,798  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22utrecht%22%5D&availability=%5B%22available%22%5D
+2026-04-07 20:34:01,947  INFO      Funda [utrecht]: 0 listing cards found
+2026-04-07 20:34:01,948  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22den-haag%22%5D&availability=%5B%22available%22%5D
+2026-04-07 20:34:05,100  INFO      Funda [den-haag]: 0 listing cards found
+2026-04-07 20:34:05,100  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22gouda%22%5D&availability=%5B%22available%22%5D
+2026-04-07 20:34:08,258  INFO      Funda [gouda]: 0 listing cards found
+2026-04-07 20:34:22,694  INFO      Pararius fetched: 32, Funda fetched: 0
+2026-04-07 20:34:22,694  INFO      New listings: 0 (0 Pararius, 0 Funda)
+2026-04-07 20:34:22,694  INFO      No new listings.
+2026-04-07 20:34:22,750  INFO      === Scan complete ===
+
+2026-04-07 23:17:08,230  INFO      === Scan started ===
+2026-04-07 23:17:08,236  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht', 'den-haag', 'gouda']
+2026-04-07 23:17:10,265  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 23:17:13,252  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 23:17:13,285  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 23:17:15,387  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 23:17:15,388  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 23:17:17,428  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 23:17:17,429  INFO      Pararius → https://www.pararius.nl/huurwoningen/den-haag
+2026-04-07 23:17:19,476  INFO      Pararius [den-haag]: 0 listing cards found
+2026-04-07 23:17:19,476  INFO      Pararius → https://www.pararius.nl/huurwoningen/gouda
+2026-04-07 23:17:21,526  INFO      Pararius [gouda]: 0 listing cards found
+2026-04-07 23:17:23,215  WARNING   Funda skipped — Chrome not reachable on http://localhost:9222: BrowserType.connect_over_cdp: connect ECONNREFUSED ::1:9222
+Call log:
+  - <ws preparing> retrieving websocket url from http://localhost:9222
+
+2026-04-07 23:17:23,216  INFO      Pararius fetched: 32, Funda fetched: 0
+2026-04-07 23:17:23,216  INFO      New listings: 1 (1 Pararius, 0 Funda)
+2026-04-07 23:17:23,216  INFO        NEW  [Pararius] Appartement Rijnstraat — € 3.425 per maandTransparantMeer informatie  https://www.pararius.nl/appartement-te-huur/amsterdam/1398dd23/rijnstraat
+2026-04-07 23:17:23,231  INFO      === Scan complete ===
+
+2026-04-07 23:27:58,732  INFO      === Scan started ===
+2026-04-07 23:27:58,738  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht', 'den-haag', 'gouda']
+2026-04-07 23:27:59,979  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 23:28:02,903  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 23:28:02,936  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 23:28:05,017  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 23:28:05,017  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 23:28:07,065  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 23:28:07,066  INFO      Pararius → https://www.pararius.nl/huurwoningen/den-haag
+2026-04-07 23:28:09,110  INFO      Pararius [den-haag]: 0 listing cards found
+2026-04-07 23:28:09,111  INFO      Pararius → https://www.pararius.nl/huurwoningen/gouda
+2026-04-07 23:28:11,157  INFO      Pararius [gouda]: 0 listing cards found
+2026-04-07 23:28:11,656  INFO      patching driver executable /Users/assafrubin/Library/Application Support/undetected_chromedriver/undetected_chromedriver
+2026-04-07 23:28:16,463  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amsterdam%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:29:10,414  INFO      Funda [amsterdam]: 13 listings found
+2026-04-07 23:29:10,415  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amstelveen%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:29:39,292  INFO      Funda [amstelveen]: 13 listings found
+2026-04-07 23:29:39,292  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22utrecht%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:29:47,740  INFO      Funda [utrecht]: 18 listings found
+2026-04-07 23:29:47,741  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22den-haag%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:29:59,166  INFO      Funda [den-haag]: 12 listings found
+2026-04-07 23:29:59,166  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22gouda%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:30:07,988  INFO      Funda [gouda]: 8 listings found
+2026-04-07 23:30:08,028  INFO      Pararius fetched: 32, Funda fetched: 64
+2026-04-07 23:30:08,028  INFO      New listings: 62 (0 Pararius, 62 Funda)
+2026-04-07 23:30:08,028  INFO        NEW  [Funda] Karspeldreef 16-B70 Amsterdam — € 1.579 /mnd  https://www.funda.nl/detail/huur/amsterdam/appartement-karspeldreef-16-b70/43154707/
+2026-04-07 23:30:08,028  INFO        NEW  [Funda] Rijnlandlaan 345 Amsterdam — € 2.459 /mnd  https://www.funda.nl/detail/huur/amsterdam/appartement-rijnlandlaan-345/43164730/
+2026-04-07 23:30:08,028  INFO        NEW  [Funda] 200 m² living space | 4 bedrooms | 2 bathrooms | Creative wo —   https://www.funda.nl/detail/huur/amsterdam/huis-eisdenstraat-68/89762701/
+2026-04-07 23:30:08,028  INFO        NEW  [Funda] Luxe appartement met dakterras, airco en 2 slaapkamers op to —   https://www.funda.nl/detail/huur/amsterdam/appartement-okeghemstraat-9-3/43221580/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amsterdam/appartement-sloterkade-157-c/89753622/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda] Fraai appartement 129 m², 16de verdieping, terras west 12 m² —   https://www.funda.nl/detail/huur/amsterdam/appartement-leonard-bernsteinstraat-90-a/43382194/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amsterdam/appartement-warmondstraat-89-4/43238972/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amsterdam/appartement-visseringstraat-67/43399803/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amsterdam/appartement-herengracht-50-c/43212228/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amsterdam/appartement-gustav-mahlerplein-257/43208920/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda] Samen huren met een vriend(in) en wonen met prachtig uitzich —   https://www.funda.nl/detail/huur/amsterdam/appartement-hiraistraat-6-a166/89672571/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-graaf-willemlaan-29/89748205/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-thorbeckelaan-122/89750287/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda] Nieuw —   https://www.funda.nl/detail/huur/amstelveen/appartement-wisselstroom-19/89762614/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/appartement-stadsplein-45/89744293/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/appartement-wimbledonpark-199/89716134/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/appartement-maimonideslaan-93/43216020/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/appartement-fluweelboomlaan-117/43207965/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-de-catoenboom-13/89755269/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-selde-rust-2/89748150/
+2026-04-07 23:30:08,029  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-oostelijk-halfrond-66/89742915/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-zwanenwater-29/43353468/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-rembrandtweg-456/89715564/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/amstelveen/huis-cia-van-boortlaan-30/43297571/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda] Perronlaan 110 Utrecht — € 1.875 /mnd  https://www.funda.nl/detail/huur/utrecht/appartement-perronlaan-110/43369579/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda] Van Heuven Goedhartplein Utrecht — € 1.190 /mnd  https://www.funda.nl/detail/huur/utrecht/appartement-van-heuven-goedhartplein/43373372/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda] Lessinglaan 30 Utrecht — € 3.695 /mnd  https://www.funda.nl/detail/huur/utrecht/huis-lessinglaan-30/89718032/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-vaduzdijk-245/43256058/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-vaduzdijk-239/43256052/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda] Te huur: wonen in hartje Utrecht met balkon en parkeerplek! —   https://www.funda.nl/detail/huur/utrecht/appartement-hartingstraat-298/43396018/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda] A touch of New York in Utrecht. That's how it feels when you —   https://www.funda.nl/detail/huur/utrecht/appartement-livingstonelaan-1260/89731278/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-nieuwegracht-32-d/43388914/
+2026-04-07 23:30:08,030  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-naxosdreef-85/43351962/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-adikade-44/43240833/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-hooft-graaflandstraat-2-a6/89757991/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-reinoutdreef-17/43384179/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-oranje-vrijbuiterskade-162/43386588/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-ambonstraat-12-bs/43374898/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/appartement-vredenburg-84/89736736/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/huis-oudwijkerveldstraat-79/43306316/
+2026-04-07 23:30:08,031  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/utrecht/huis-van-koetsveldstraat-13/89754481/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda] Nieuw —   https://www.funda.nl/detail/huur/utrecht/appartement-maliestraat-1-a/89761407/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/huis-frits-diepenlaan-32/89633324/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-treslonglaan-110/43382778/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda] Heerlijk gemeubileerd 3 laags appartement van ruim. 125m2 Bl —   https://www.funda.nl/detail/huur/den-haag/appartement-de-savornin-lohmanlaan-77/89618682/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-wijnhaven-6/89252867/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-wijnhaven-6-24a/89849598/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/huis-kapelweg-5/43292196/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-randveen-90/43291822/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-randveen-78/43291827/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda] Spacious, high-end three-storey upper-level home in Zeehelde —   https://www.funda.nl/detail/huur/den-haag/appartement-de-ruijterstraat-49/89734582/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-zodiakplein-95/89723970/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-vogelkersstraat-52/89748477/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/den-haag/appartement-annastraat-4-b/89683672/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/parkeergelegenheid-nieuwe-gouwe-oz-12-e/43210365/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/appartement-sint-mariewal-14/89719645/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/appartement-karnemelksloot-110/43364376/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/parkeergelegenheid-burgemeester-martenssingel/43398641/
+2026-04-07 23:30:08,032  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/parkeergelegenheid-catsveld-thv-101-123/89743336/
+2026-04-07 23:30:08,033  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/parkeergelegenheid-heuvellaan-3/42335242/
+2026-04-07 23:30:08,033  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/huis-machteld-cosijnsweg-30/89739234/
+2026-04-07 23:30:08,033  INFO        NEW  [Funda]  —   https://www.funda.nl/detail/huur/gouda/parkeergelegenheid-groningenweg-14/89155965/
+2026-04-07 23:30:08,047  INFO        → rotem.aviv29@gmail.com / John Drone: 11 match(es)
+2026-04-07 23:30:08,047  INFO        → rotem.aviv29@gmail.com / Jonathan & partner: 24 match(es)
+2026-04-07 23:30:08,978  INFO      Email sent to rotem.aviv29@gmail.com.
+2026-04-07 23:30:08,979  INFO        → assafrubin@gmail.com / Alin Green Hair: 11 match(es)
+2026-04-07 23:30:09,815  INFO      Email sent to assafrubin@gmail.com.
+2026-04-07 23:30:09,824  INFO      === Scan complete ===
+
+2026-04-07 23:35:09,037  INFO      === Scan started ===
+2026-04-07 23:35:09,038  INFO      Scraping cities: ['amsterdam', 'amstelveen', 'utrecht', 'den-haag', 'gouda']
+2026-04-07 23:35:09,993  INFO      Pararius → https://www.pararius.nl/huurwoningen/amsterdam
+2026-04-07 23:35:12,981  INFO      Pararius [amsterdam]: 32 listing cards found
+2026-04-07 23:35:13,000  INFO      Pararius → https://www.pararius.nl/huurwoningen/amstelveen
+2026-04-07 23:35:15,090  INFO      Pararius [amstelveen]: 0 listing cards found
+2026-04-07 23:35:15,090  INFO      Pararius → https://www.pararius.nl/huurwoningen/utrecht
+2026-04-07 23:35:17,144  INFO      Pararius [utrecht]: 0 listing cards found
+2026-04-07 23:35:17,144  INFO      Pararius → https://www.pararius.nl/huurwoningen/den-haag
+2026-04-07 23:35:19,198  INFO      Pararius [den-haag]: 0 listing cards found
+2026-04-07 23:35:19,198  INFO      Pararius → https://www.pararius.nl/huurwoningen/gouda
+2026-04-07 23:35:21,243  INFO      Pararius [gouda]: 0 listing cards found
+2026-04-07 23:35:21,919  INFO      patching driver executable /Users/assafrubin/Library/Application Support/undetected_chromedriver/undetected_chromedriver
+2026-04-07 23:35:24,971  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amsterdam%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:35:28,110  INFO      Funda [amsterdam]: 13 listings found
+2026-04-07 23:35:28,110  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amstelveen%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:35:30,639  INFO      Funda [amstelveen]: 13 listings found
+2026-04-07 23:35:30,639  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22utrecht%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:35:33,267  INFO      Funda [utrecht]: 15 listings found
+2026-04-07 23:35:33,268  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22den-haag%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:35:35,816  INFO      Funda [den-haag]: 12 listings found
+2026-04-07 23:35:35,816  INFO      Funda → https://www.funda.nl/zoeken/huur/?selected_area=%5B%22gouda%22%5D&availability=%5B%22available%22%5D
+2026-04-07 23:35:38,179  INFO      Funda [gouda]: 8 listings found
+2026-04-07 23:35:38,395  INFO      Pararius fetched: 32, Funda fetched: 61
+2026-04-07 23:35:38,395  INFO      New listings: 1 (0 Pararius, 1 Funda)
+2026-04-07 23:35:38,395  INFO        NEW  [Funda] Dijkmeerlaan 154 Amsterdam — € 2.750 /mnd  https://www.funda.nl/detail/huur/amsterdam/appartement-dijkmeerlaan-154/43382414/
+2026-04-07 23:35:38,399  INFO        → rotem.aviv29@gmail.com / John Drone: 1 match(es)
+2026-04-07 23:35:39,292  INFO      Email sent to rotem.aviv29@gmail.com.
+2026-04-07 23:35:39,304  INFO      === Scan complete ===
+

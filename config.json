@@ -1,0 +1,17 @@
+{
+  "scrape": {
+    "cities": [
+      "amsterdam",
+      "amstelveen",
+      "utrecht",
+      "den-haag",
+      "gouda"
+    ]
+  },
+  "notifications": {
+    "whatsapp_number": "+310624463594",
+    "whatsapp_apikey": "",
+    "email_from": "assafrubin@gmail.com",
+    "email_password": "akfm fwpj uppv ywkq"
+  }
+}

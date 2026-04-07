@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip3 install:*)",
+      "Bash(python3 scanner.py)",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" -H \"Accept-Language: nl-NL,nl;q=0.9\" -H \"Accept: text/html,application/xhtml+xml\" \"https://www.pararius.nl/huurwoningen/amsterdam/1500-2500\" -o /tmp/pararius_test.html -w \"%{http_code}\")",
+      "Bash(curl -s -A \"Mozilla/5.0 \\(Macintosh; Intel Mac OS X 10_15_7\\) AppleWebKit/537.36 \\(KHTML, like Gecko\\) Chrome/124.0.0.0 Safari/537.36\" -H \"Accept-Language: nl-NL,nl;q=0.9\" -H \"Accept: text/html,application/xhtml+xml\" \"https://www.funda.nl/zoeken/huur/?selected_area=%5B%22amsterdam%22%5D&price_min=1500&price_max=2500\" -o /tmp/funda_test.html -w \"%{http_code}\")",
+      "Bash(python3 -:*)",
+      "Bash(python3 -c \":*)",
+      "mcp__scheduled-tasks__list_scheduled_tasks"
+    ]
+  }
+}
