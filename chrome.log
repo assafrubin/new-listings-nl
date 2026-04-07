@@ -128,3 +128,92 @@ Created TensorFlow Lite XNNPACK delegate for CPU.
 [40851:303751:0407/234213.843007:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS END event to the history log
 [40851:303751:0407/234213.843159:VERBOSE1:chrome/updater/updater.cc:470] UpdaterMain (--crash-handler) returned 0.
 [40795:302720:0407/234240.653802:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[40795:302720:0407/234415.640594:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+Trying to load the allocator multiple times. This is *not* supported.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1775598268.026073  307993 environment.cc:548] Selected adapter: Apple M3, arch=metal-3, vendor=apple, backend=Metal, adapterType=Integrated GPU
+I0000 00:00:1775598268.040844  308007 environment.cc:548] Selected adapter: Apple M3, arch=metal-3, vendor=apple, backend=Metal, adapterType=Integrated GPU
+[805:8209:0407/234650.732918:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8209:0407/234650.753857:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/ecc01453-fb51-4c07-89e7-b050e5342cf1
+[805:8206:0407/234702.875983:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8206:0407/234702.889958:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+Trying to load the allocator multiple times. This is *not* supported.
+[805:8210:0407/234705.084660:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[805:8210:0407/234705.109865:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[805:8210:0407/234705.110387:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: PHONE_REGISTRATION_ERROR
+[1004:11302:0407/234711.117688:VERBOSE1:chrome/updater/updater.cc:432] Version: 148.0.7730.0, opt, ARM_64, command line: /Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake-all --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[1004:11302:0407/234711.118387:VERBOSE1:chrome/updater/updater.cc:435] OS version: 15.4.0, arch: arm64, System uptime (seconds): 60, parent pid: 805
+[1004:11302:0407/234711.121697:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS START event to the history log
+[1006:11306:0407/234711.133709:VERBOSE1:chrome/updater/updater.cc:432] Version: 148.0.7730.0, opt, ARM_64, command line: /Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=148.0.7730.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[1006:11306:0407/234711.133937:VERBOSE1:chrome/updater/updater.cc:435] OS version: 15.4.0, arch: arm64, System uptime (seconds): 60, parent pid: 1
+[1006:11306:0407/234711.136345:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS START event to the history log
+[1004:11302:0407/234711.136977:VERBOSE1:chrome/updater/crash_reporter.cc:129] Crash handler launched and ready.
+[1004:11302:0407/234711.137687:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports
+[1004:11302:0407/234711.137770:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports
+[1004:11302:0407/234711.137888:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/assafrubin/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)
+[1004:11302:0407/234711.137946:VERBOSE1:chrome/updater/updater.cc:106] Crash reporting initialized.
+[1004:11316:0407/234711.138299:VERBOSE1:chrome/updater/app/app_wakeall.cc:56] Launching `/Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake`
+[1008:11320:0407/234711.146139:VERBOSE1:chrome/updater/updater.cc:432] Version: 148.0.7730.0, opt, ARM_64, command line: /Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[1008:11320:0407/234711.146310:VERBOSE1:chrome/updater/updater.cc:435] OS version: 15.4.0, arch: arm64, System uptime (seconds): 60, parent pid: 1004
+[1008:11320:0407/234711.148183:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS START event to the history log
+[1010:11324:0407/234711.158629:VERBOSE1:chrome/updater/updater.cc:432] Version: 148.0.7730.0, opt, ARM_64, command line: /Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --crash-handler --database=/Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/Crashpad --url=https://clients2.google.com/cr/report --annotation=prod=Update4 --annotation=ver=148.0.7730.0 --handshake-fd=6 --enable-logging --vmodule=*/components/update_client/*=2,*/chrome/enterprise_companion/*=2,*/chrome/updater/*=2
+[1010:11324:0407/234711.158798:VERBOSE1:chrome/updater/updater.cc:435] OS version: 15.4.0, arch: arm64, System uptime (seconds): 60, parent pid: 1
+[1010:11324:0407/234711.160531:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS START event to the history log
+[1008:11320:0407/234711.160934:VERBOSE1:chrome/updater/crash_reporter.cc:129] Crash handler launched and ready.
+[1008:11320:0407/234711.161588:VERBOSE1:chrome/updater/crash_client.cc:108] Found 0 completed crash reports
+[1008:11320:0407/234711.161644:VERBOSE1:chrome/updater/crash_client.cc:132] Found 0 pending crash reports
+[1008:11320:0407/234711.161700:ERROR:third_party/crashpad/crashpad/util/file/file_io_posix.cc:145] open /Users/assafrubin/Library/Application Support/Google/RLZ/Crashpad/settings.dat: No such file or directory (2)
+[1008:11320:0407/234711.161738:VERBOSE1:chrome/updater/updater.cc:106] Crash reporting initialized.
+[1008:11320:0407/234711.161901:VERBOSE1:chrome/updater/ipc/update_service_internal_proxy_mojo.cc:59] Run
+Created TensorFlow Lite XNNPACK delegate for CPU.
+[805:8206:0407/234716.717109:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8206:0407/234716.717365:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8210:0407/234730.322630:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT
+[1008:11320:0407/234732.256963:VERBOSE1:chrome/updater/app/app.cc:53] Shutdown: 0
+[1008:11320:0407/234732.263998:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS END event to the history log
+[1008:11320:0407/234732.264064:VERBOSE1:chrome/updater/updater.cc:470] UpdaterMain (--wake) returned 0.
+[1004:11316:0407/234732.478852:VERBOSE1:chrome/updater/app/app_wakeall.cc:66] `/Users/assafrubin/Library/Application Support/Google/GoogleUpdater/148.0.7730.0/GoogleUpdater.app/Contents/MacOS/GoogleUpdater --wake` exited 0
+[1004:11302:0407/234732.479216:VERBOSE1:chrome/updater/app/app.cc:53] Shutdown: 0
+[1004:11302:0407/234732.479755:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS END event to the history log
+[1004:11302:0407/234732.479821:VERBOSE1:chrome/updater/updater.cc:470] UpdaterMain (--wake-all) returned 0.
+[1010:11324:0407/234742.576829:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS END event to the history log
+[1010:11324:0407/234742.578300:VERBOSE1:chrome/updater/updater.cc:470] UpdaterMain (--crash-handler) returned 0.
+[1006:11306:0407/234742.623973:VERBOSE2:chrome/updater/event_history.cc:270] Emitted a UPDATER_PROCESS END event to the history log
+[1006:11306:0407/234742.624025:VERBOSE1:chrome/updater/updater.cc:470] UpdaterMain (--crash-handler) returned 0.
+[805:8206:0407/234755.094421:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8206:0407/234755.094694:ERROR:net/cert/internal/trust_store_mac.cc:807] Error parsing certificate:
+ERROR: Failed normalizing string
+  tag: 19
+ERROR: Failed normalizing subject
+
+[805:8210:0407/234820.858324:ERROR:google_apis/gcm/engine/registration_request.cc:291] Registration response error message: DEPRECATED_ENDPOINT

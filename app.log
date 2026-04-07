@@ -208,3 +208,59 @@ Scanner UI running at http://localhost:5001
  * Debug mode: on
 Address already in use
 Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+Address already in use
+Port 5001 is in use by another program. Either identify and stop that program, or start the server with a different port.
+Scanner UI running at http://localhost:5001
+ * Serving Flask app 'app'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5001
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [07/Apr/2026 23:47:06] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+127.0.0.1 - - [07/Apr/2026 23:47:06] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:06] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:10] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:14] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:18] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:20] "GET /subscribers HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:45] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:49] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:53] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:47:57] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:48:01] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:48:05] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:48:09] "GET /scanner/status HTTP/1.1" 200 -
+127.0.0.1 - - [07/Apr/2026 23:48:13] "GET /scanner/status HTTP/1.1" 200 -
