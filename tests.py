@@ -1,0 +1,1231 @@
+#!/usr/bin/env python3
+"""
+Comprehensive test suite for the NL Rental Scanner.
+
+Run with:  python -m unittest tests -v
+           python tests.py
+
+Coverage
+--------
+  db.py       — schema creation, backward-compatible migrations, upsert,
+                numeric parsers, subscriber/query CRUD, student flags
+  scanner.py  — matches_query (all filter combinations), student LLM
+                classification, description fetching, enrichment pipeline,
+                Pararius HTML parsing, Funda HTML parsing
+  app.py      — all Flask routes, form submissions, UI content / pills
+"""
+
+import os
+import sys
+import json
+import sqlite3
+import tempfile
+import unittest
+from unittest.mock import patch, MagicMock, call
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, PROJECT_ROOT)
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _tmp_db() -> str:
+    fd, path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    return path
+
+
+def _cols(db_path: str, table: str) -> set:
+    conn = sqlite3.connect(db_path)
+    result = {r[1] for r in conn.execute(f"PRAGMA table_info({table})")}
+    conn.close()
+    return result
+
+
+def _tables(db_path: str) -> set:
+    conn = sqlite3.connect(db_path)
+    result = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    conn.close()
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — fresh schema
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBSchema(unittest.TestCase):
+    """All expected tables and columns are created on a fresh database."""
+
+    def setUp(self):
+        self.db_path = _tmp_db()
+        self.patcher = patch("db.DB_FILE", self.db_path)
+        self.patcher.start()
+        import db
+        self.db = db
+
+    def tearDown(self):
+        self.patcher.stop()
+        os.unlink(self.db_path)
+
+    def test_all_tables_created(self):
+        self.db.init_db()
+        tables = _tables(self.db_path)
+        for t in ["listings", "scan_runs", "subscribers", "customer_queries"]:
+            self.assertIn(t, tables)
+
+    def test_listings_columns(self):
+        self.db.init_db()
+        cols = _cols(self.db_path, "listings")
+        expected = ["id", "source", "title", "price", "price_num", "size", "size_num",
+                    "rooms", "rooms_num", "energy", "agency", "phone", "url",
+                    "first_seen", "last_seen", "city", "student"]
+        for c in expected:
+            self.assertIn(c, cols, f"listings missing column '{c}'")
+
+    def test_customer_queries_columns(self):
+        self.db.init_db()
+        cols = _cols(self.db_path, "customer_queries")
+        expected = ["id", "subscriber_id", "customer_name", "cities",
+                    "min_price", "max_price", "min_rooms", "student",
+                    "created_at", "active"]
+        for c in expected:
+            self.assertIn(c, cols, f"customer_queries missing column '{c}'")
+
+    def test_subscribers_columns(self):
+        self.db.init_db()
+        cols = _cols(self.db_path, "subscribers")
+        for c in ["id", "email", "first_name", "last_name", "created_at", "active"]:
+            self.assertIn(c, cols)
+
+    def test_indexes_created(self):
+        self.db.init_db()
+        conn = sqlite3.connect(self.db_path)
+        indexes = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+        conn.close()
+        for idx in ["idx_source", "idx_price_num", "idx_rooms_num",
+                    "idx_first_seen", "idx_sub_email", "idx_cq_sub"]:
+            self.assertIn(idx, indexes)
+
+    def test_init_db_is_idempotent(self):
+        """Calling init_db() twice must not raise."""
+        self.db.init_db()
+        self.db.init_db()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — backward-compatible migrations
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBBackwardCompatibility(unittest.TestCase):
+    """
+    Simulates upgrading a pre-existing database that is missing the new
+    'city' and 'student' columns.  init_db() must add them without losing data.
+    """
+
+    def setUp(self):
+        self.db_path = _tmp_db()
+        self.patcher = patch("db.DB_FILE", self.db_path)
+        self.patcher.start()
+        import db
+        self.db = db
+
+    def tearDown(self):
+        self.patcher.stop()
+        os.unlink(self.db_path)
+
+    def _create_legacy_schema(self):
+        """Reproduce the original schema (no 'city' or 'student' columns)."""
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("""
+            CREATE TABLE listings (
+                id TEXT PRIMARY KEY, source TEXT, title TEXT,
+                price TEXT, price_num REAL, size TEXT, size_num REAL,
+                rooms TEXT, rooms_num INTEGER, energy TEXT,
+                agency TEXT, phone TEXT, url TEXT,
+                first_seen TEXT, last_seen TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE customer_queries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subscriber_id INTEGER NOT NULL,
+                customer_name TEXT NOT NULL DEFAULT '',
+                cities TEXT NOT NULL DEFAULT '[]',
+                min_price REAL, max_price REAL, min_rooms INTEGER,
+                created_at TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE subscribers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL, created_at TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE scan_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ran_at TEXT NOT NULL, new_count INTEGER NOT NULL DEFAULT 0,
+                new_ids TEXT NOT NULL DEFAULT '[]'
+            )
+        """)
+        # Pre-existing listing row
+        conn.execute(
+            "INSERT INTO listings (id, source, title, price, first_seen, last_seen) "
+            "VALUES (?,?,?,?,?,?)",
+            ("funda-1234567", "Funda", "Old Street 1", "€ 1500 /mnd",
+             "2024-01-01T00:00:00Z", "2024-01-01T00:00:00Z"),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_migrate_adds_city_to_listings(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        self.assertIn("city", _cols(self.db_path, "listings"))
+
+    def test_migrate_adds_student_to_listings(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        self.assertIn("student", _cols(self.db_path, "listings"))
+
+    def test_migrate_adds_student_to_customer_queries(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        self.assertIn("student", _cols(self.db_path, "customer_queries"))
+
+    def test_migrate_adds_first_last_name_to_subscribers(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        cols = _cols(self.db_path, "subscribers")
+        self.assertIn("first_name", cols)
+        self.assertIn("last_name", cols)
+
+    def test_existing_data_preserved_after_migration(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute(
+            "SELECT id, title FROM listings WHERE id='funda-1234567'"
+        ).fetchone()
+        conn.close()
+        self.assertIsNotNone(row)
+        self.assertEqual(row[1], "Old Street 1")
+
+    def test_student_defaults_to_zero_for_migrated_rows(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute(
+            "SELECT student FROM listings WHERE id='funda-1234567'"
+        ).fetchone()
+        conn.close()
+        self.assertEqual(row[0], 0)
+
+    def test_migration_is_idempotent(self):
+        """Running init_db() on an already-migrated DB must not raise."""
+        self._create_legacy_schema()
+        self.db.init_db()
+        self.db.init_db()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — upsert_listings
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBUpsert(unittest.TestCase):
+
+    def setUp(self):
+        self.db_path = _tmp_db()
+        self.patcher = patch("db.DB_FILE", self.db_path)
+        self.patcher.start()
+        import db
+        self.db = db
+        db.init_db()
+
+    def tearDown(self):
+        self.patcher.stop()
+        os.unlink(self.db_path)
+
+    def _get(self, lid: str) -> dict | None:
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        row = conn.execute("SELECT * FROM listings WHERE id=?", (lid,)).fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    def _base_listing(self, **kw) -> dict:
+        base = dict(
+            id="pararius-aabbccdd", source="Pararius", city="amsterdam",
+            title="Nice Apt", price="€ 1.500 per maand", size="60 m²",
+            rooms="2", energy="A", agency="TestAgency", phone="", url="https://x.com/1",
+        )
+        base.update(kw)
+        return base
+
+    def test_insert_new_listing_stored(self):
+        self.db.upsert_listings([self._base_listing()])
+        row = self._get("pararius-aabbccdd")
+        self.assertIsNotNone(row)
+        self.assertEqual(row["title"], "Nice Apt")
+
+    def test_price_num_parsed_on_insert(self):
+        self.db.upsert_listings([self._base_listing(price="€ 1.500 per maand")])
+        self.assertEqual(self._get("pararius-aabbccdd")["price_num"], 1500.0)
+
+    def test_size_num_parsed_on_insert(self):
+        self.db.upsert_listings([self._base_listing(size="60 m²")])
+        self.assertEqual(self._get("pararius-aabbccdd")["size_num"], 60.0)
+
+    def test_rooms_num_parsed_on_insert(self):
+        self.db.upsert_listings([self._base_listing(rooms="2")])
+        self.assertEqual(self._get("pararius-aabbccdd")["rooms_num"], 2)
+
+    def test_student_true_stored_as_1(self):
+        self.db.upsert_listings([self._base_listing(student=True)])
+        self.assertEqual(self._get("pararius-aabbccdd")["student"], 1)
+
+    def test_student_false_stored_as_0(self):
+        self.db.upsert_listings([self._base_listing(student=False)])
+        self.assertEqual(self._get("pararius-aabbccdd")["student"], 0)
+
+    def test_student_absent_defaults_to_0(self):
+        listing = self._base_listing()
+        listing.pop("student", None)
+        self.db.upsert_listings([listing])
+        self.assertEqual(self._get("pararius-aabbccdd")["student"], 0)
+
+    def test_upsert_preserves_first_seen(self):
+        self.db.upsert_listings([self._base_listing()])
+        first = self._get("pararius-aabbccdd")["first_seen"]
+        self.db.upsert_listings([self._base_listing(title="Updated")])
+        self.assertEqual(self._get("pararius-aabbccdd")["first_seen"], first)
+
+    def test_upsert_does_not_downgrade_student_flag(self):
+        """A listing classified student=1 stays student=1 on re-upsert with student=0."""
+        self.db.upsert_listings([self._base_listing(student=True)])
+        self.db.upsert_listings([self._base_listing(student=False)])
+        self.assertEqual(self._get("pararius-aabbccdd")["student"], 1)
+
+    def test_upsert_upgrades_student_flag(self):
+        """A listing classified student=0 can be upgraded to student=1."""
+        self.db.upsert_listings([self._base_listing(student=False)])
+        self.db.upsert_listings([self._base_listing(student=True)])
+        self.assertEqual(self._get("pararius-aabbccdd")["student"], 1)
+
+    def test_get_seen_ids_returns_all(self):
+        self.db.upsert_listings([
+            self._base_listing(id="funda-1111111"),
+            self._base_listing(id="pararius-aaaaaaaa"),
+        ])
+        seen = self.db.get_seen_ids()
+        self.assertIn("funda-1111111", seen)
+        self.assertIn("pararius-aaaaaaaa", seen)
+
+    def test_empty_list_is_noop(self):
+        self.db.upsert_listings([])
+        seen = self.db.get_seen_ids()
+        self.assertEqual(len(seen), 0)
+
+    def test_multiple_listings_inserted(self):
+        self.db.upsert_listings([
+            self._base_listing(id=f"funda-{i}000000") for i in range(1, 6)
+        ])
+        self.assertEqual(len(self.db.get_seen_ids()), 5)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — subscriber / query CRUD
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBSubscriberQueries(unittest.TestCase):
+
+    def setUp(self):
+        self.db_path = _tmp_db()
+        self.patcher = patch("db.DB_FILE", self.db_path)
+        self.patcher.start()
+        import db
+        self.db = db
+        db.init_db()
+        self.sub_id = db.add_subscriber("test@example.com", "Test", "User")
+
+    def tearDown(self):
+        self.patcher.stop()
+        os.unlink(self.db_path)
+
+    def _queries(self) -> list:
+        return self.db.get_subscribers_with_queries()[0]["queries"]
+
+    def test_add_subscriber_returns_id(self):
+        self.assertIsInstance(self.sub_id, int)
+        self.assertGreater(self.sub_id, 0)
+
+    def test_add_query_default_student_is_0(self):
+        self.db.add_customer_query(self.sub_id, "John", ["amsterdam"], 1000, 2000, 2)
+        self.assertEqual(self._queries()[0]["student"], 0)
+
+    def test_add_query_student_true(self):
+        self.db.add_customer_query(self.sub_id, "Maria", ["amsterdam"], None, None, None, student=True)
+        self.assertEqual(self._queries()[0]["student"], 1)
+
+    def test_add_query_student_false_explicit(self):
+        self.db.add_customer_query(self.sub_id, "Bob", ["utrecht"], None, None, None, student=False)
+        self.assertEqual(self._queries()[0]["student"], 0)
+
+    def test_cities_lowercased_and_deserialized(self):
+        self.db.add_customer_query(self.sub_id, "Multi", ["Amsterdam", "Utrecht", "Den Haag"], None, None, None)
+        cities = self._queries()[0]["cities"]
+        self.assertIsInstance(cities, list)
+        self.assertIn("amsterdam", cities)
+        self.assertIn("utrecht", cities)
+        self.assertIn("den haag", cities)
+
+    def test_multiple_queries_for_same_subscriber(self):
+        self.db.add_customer_query(self.sub_id, "Q1", ["amsterdam"], None, None, None)
+        self.db.add_customer_query(self.sub_id, "Q2", ["utrecht"], 1000, 2500, 2, student=True)
+        self.assertEqual(len(self._queries()), 2)
+
+    def test_remove_query_soft_deletes(self):
+        qid = self.db.add_customer_query(self.sub_id, "Remove Me", ["amsterdam"], None, None, None)
+        self.db.remove_customer_query(qid)
+        self.assertEqual(len(self._queries()), 0)
+
+    def test_remove_subscriber_soft_deletes(self):
+        self.db.remove_subscriber(self.sub_id)
+        self.assertEqual(len(self.db.get_subscribers_with_queries()), 0)
+
+    def test_remove_subscriber_also_removes_queries(self):
+        self.db.add_customer_query(self.sub_id, "Q", ["amsterdam"], None, None, None)
+        self.db.remove_subscriber(self.sub_id)
+        # Row still in DB but marked inactive
+        conn = sqlite3.connect(self.db_path)
+        active = conn.execute(
+            "SELECT active FROM customer_queries WHERE subscriber_id=?", (self.sub_id,)
+        ).fetchone()
+        conn.close()
+        self.assertEqual(active[0], 0)
+
+    def test_record_scan_run(self):
+        self.db.record_scan_run(["funda-1111111", "pararius-aaaaaaaa"])
+        runs = self.db.get_scan_runs(limit=1)
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["new_count"], 2)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — numeric parsers
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBParsers(unittest.TestCase):
+
+    def setUp(self):
+        import db
+        self.db = db
+
+    def test_price_dutch_period_separator(self):
+        self.assertEqual(self.db._parse_price("€ 2.500 per maand"), 2500.0)
+
+    def test_price_english_comma_separator(self):
+        self.assertEqual(self.db._parse_price("€2,500 /month"), 2500.0)
+
+    def test_price_plain_number(self):
+        self.assertEqual(self.db._parse_price("€ 1200 per maand"), 1200.0)
+
+    def test_price_unparseable_returns_none(self):
+        self.assertIsNone(self.db._parse_price("Prijs op aanvraag"))
+
+    def test_price_empty_returns_none(self):
+        self.assertIsNone(self.db._parse_price(""))
+
+    def test_size_m2(self):
+        self.assertEqual(self.db._parse_size("75 m²"), 75.0)
+
+    def test_size_m2_no_space(self):
+        self.assertEqual(self.db._parse_size("120m2"), 120.0)
+
+    def test_size_empty_returns_none(self):
+        self.assertIsNone(self.db._parse_size(""))
+
+    def test_rooms_plain_number(self):
+        self.assertEqual(self.db._parse_rooms("3"), 3)
+
+    def test_rooms_with_label(self):
+        self.assertEqual(self.db._parse_rooms("2 bedrooms"), 2)
+
+    def test_rooms_empty_returns_none(self):
+        self.assertIsNone(self.db._parse_rooms(""))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scanner — matches_query (all filter combinations)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestMatchesQuery(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.matches = scanner.matches_query
+
+    def _listing(self, **kw) -> dict:
+        base = dict(
+            id="funda-1234567", source="Funda", city="amsterdam",
+            title="Test", price="€ 2000 /mnd", size="60 m²",
+            rooms="2", energy="A", agency="", phone="", url="",
+            student=False,
+        )
+        base.update(kw)
+        return base
+
+    def _query(self, **kw) -> dict:
+        base = dict(cities=["amsterdam"], min_price=None, max_price=None,
+                    min_rooms=None, student=0)
+        base.update(kw)
+        return base
+
+    # city ────────────────────────────────────────────────────────────────────
+
+    def test_city_exact_match(self):
+        self.assertTrue(self.matches(self._listing(city="amsterdam"), self._query(cities=["amsterdam"])))
+
+    def test_city_mismatch(self):
+        self.assertFalse(self.matches(self._listing(city="rotterdam"), self._query(cities=["amsterdam"])))
+
+    def test_city_case_insensitive(self):
+        self.assertTrue(self.matches(self._listing(city="Amsterdam"), self._query(cities=["amsterdam"])))
+
+    def test_city_empty_query_matches_any(self):
+        self.assertTrue(self.matches(self._listing(city="eindhoven"), self._query(cities=[])))
+
+    def test_city_one_of_multiple(self):
+        self.assertTrue(self.matches(self._listing(city="utrecht"),
+                                     self._query(cities=["amsterdam", "utrecht"])))
+
+    def test_city_not_in_multiple(self):
+        self.assertFalse(self.matches(self._listing(city="groningen"),
+                                      self._query(cities=["amsterdam", "utrecht"])))
+
+    # price ───────────────────────────────────────────────────────────────────
+
+    def test_price_within_range(self):
+        self.assertTrue(self.matches(self._listing(price="€ 1500 /mnd"),
+                                     self._query(min_price=1000, max_price=2000)))
+
+    def test_price_below_min_excluded(self):
+        self.assertFalse(self.matches(self._listing(price="€ 800 /mnd"),
+                                      self._query(min_price=1000)))
+
+    def test_price_above_max_excluded(self):
+        self.assertFalse(self.matches(self._listing(price="€ 3000 /mnd"),
+                                      self._query(max_price=2500)))
+
+    def test_price_at_min_boundary_included(self):
+        self.assertTrue(self.matches(self._listing(price="€ 1000 /mnd"),
+                                     self._query(min_price=1000)))
+
+    def test_price_at_max_boundary_included(self):
+        self.assertTrue(self.matches(self._listing(price="€ 2500 /mnd"),
+                                     self._query(max_price=2500)))
+
+    def test_no_price_filter_passes_all(self):
+        self.assertTrue(self.matches(self._listing(price="€ 9999 /mnd"), self._query()))
+
+    def test_unparseable_price_skips_filter(self):
+        self.assertTrue(self.matches(self._listing(price="Prijs op aanvraag"),
+                                     self._query(min_price=1000, max_price=2000)))
+
+    def test_empty_price_skips_filter(self):
+        self.assertTrue(self.matches(self._listing(price=""),
+                                     self._query(min_price=500, max_price=3000)))
+
+    # rooms ───────────────────────────────────────────────────────────────────
+
+    def test_rooms_meets_minimum(self):
+        self.assertTrue(self.matches(self._listing(rooms="3"), self._query(min_rooms=2)))
+
+    def test_rooms_below_minimum_excluded(self):
+        self.assertFalse(self.matches(self._listing(rooms="1"), self._query(min_rooms=2)))
+
+    def test_rooms_exactly_at_minimum(self):
+        self.assertTrue(self.matches(self._listing(rooms="2"), self._query(min_rooms=2)))
+
+    def test_no_rooms_filter_passes_all(self):
+        self.assertTrue(self.matches(self._listing(rooms="1"), self._query()))
+
+    def test_unparseable_rooms_skips_filter(self):
+        self.assertTrue(self.matches(self._listing(rooms=""), self._query(min_rooms=2)))
+
+    # student ─────────────────────────────────────────────────────────────────
+
+    def test_student_listing_excluded_from_non_student_query(self):
+        """Core rule: student-only listing is hidden from non-student queries."""
+        self.assertFalse(self.matches(self._listing(student=True), self._query(student=0)))
+
+    def test_student_listing_shown_to_student_query(self):
+        """Student query receives student listings."""
+        self.assertTrue(self.matches(self._listing(student=True), self._query(student=1)))
+
+    def test_normal_listing_shown_to_non_student_query(self):
+        """Normal listing is always visible to non-student queries."""
+        self.assertTrue(self.matches(self._listing(student=False), self._query(student=0)))
+
+    def test_normal_listing_also_shown_to_student_query(self):
+        """Student query sees normal listings too (not exclusive)."""
+        self.assertTrue(self.matches(self._listing(student=False), self._query(student=1)))
+
+    def test_student_flag_as_truthy_int(self):
+        """student=1 (integer) from DB also triggers the filter."""
+        self.assertFalse(self.matches(self._listing(student=1), self._query(student=0)))
+
+    # combined ────────────────────────────────────────────────────────────────
+
+    def test_all_filters_pass(self):
+        self.assertTrue(self.matches(
+            self._listing(city="amsterdam", price="€ 1800 /mnd", rooms="3", student=False),
+            self._query(cities=["amsterdam"], min_price=1500, max_price=2000,
+                        min_rooms=2, student=0),
+        ))
+
+    def test_city_fails_rest_pass(self):
+        self.assertFalse(self.matches(
+            self._listing(city="rotterdam", price="€ 1800 /mnd", rooms="3", student=False),
+            self._query(cities=["amsterdam"], min_price=1500, max_price=2000, min_rooms=2),
+        ))
+
+    def test_price_fails_rest_pass(self):
+        self.assertFalse(self.matches(
+            self._listing(city="amsterdam", price="€ 3500 /mnd", rooms="3", student=False),
+            self._query(cities=["amsterdam"], min_price=1500, max_price=2000, min_rooms=2),
+        ))
+
+    def test_rooms_fails_rest_pass(self):
+        self.assertFalse(self.matches(
+            self._listing(city="amsterdam", price="€ 1800 /mnd", rooms="1", student=False),
+            self._query(cities=["amsterdam"], min_price=1500, max_price=2000, min_rooms=2),
+        ))
+
+    def test_student_fails_rest_pass(self):
+        self.assertFalse(self.matches(
+            self._listing(city="amsterdam", price="€ 1800 /mnd", rooms="3", student=True),
+            self._query(cities=["amsterdam"], min_price=1500, max_price=2000,
+                        min_rooms=2, student=0),
+        ))
+
+    def test_student_query_all_filters_pass_including_student_listing(self):
+        self.assertTrue(self.matches(
+            self._listing(city="amsterdam", price="€ 700 /mnd", rooms="1", student=True),
+            self._query(cities=["amsterdam"], min_price=500, max_price=900,
+                        min_rooms=1, student=1),
+        ))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scanner — student LLM classification
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestClassifyStudentListing(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.classify = scanner.classify_student_listing
+
+    def _mock_anthropic(self, answer: str):
+        client = MagicMock()
+        client.messages.create.return_value.content = [MagicMock(text=answer)]
+        return client
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_yes_returns_true(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_anthropic("YES")
+        self.assertTrue(self.classify("Alleen voor studenten", "key"))
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_no_returns_false(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_anthropic("NO")
+        self.assertFalse(self.classify("Ruime woning in Amsterdam", "key"))
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_yes_lowercase_accepted(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_anthropic("yes")
+        self.assertTrue(self.classify("student only housing", "key"))
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_yes_with_trailing_text(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_anthropic("YES.")
+        self.assertTrue(self.classify("studentenwoning vereist inschrijfbewijs", "key"))
+
+    def test_empty_text_returns_false_without_api_call(self):
+        self.assertFalse(self.classify("", "key"))
+
+    def test_whitespace_only_returns_false_without_api_call(self):
+        self.assertFalse(self.classify("   \n\t  ", "key"))
+
+    def test_no_api_key_returns_false(self):
+        self.assertFalse(self.classify("alleen voor studenten", ""))
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_api_error_returns_false(self, MockAnthropic):
+        MockAnthropic.return_value.messages.create.side_effect = Exception("timeout")
+        self.assertFalse(self.classify("some text", "key"))
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_uses_haiku_model(self, MockAnthropic):
+        mock_client = self._mock_anthropic("NO")
+        MockAnthropic.return_value = mock_client
+        self.classify("some text", "key")
+        kwargs = mock_client.messages.create.call_args.kwargs
+        self.assertEqual(kwargs["model"], "claude-haiku-4-5-20251001")
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_text_appears_in_prompt(self, MockAnthropic):
+        mock_client = self._mock_anthropic("NO")
+        MockAnthropic.return_value = mock_client
+        self.classify("studentenwoning centrum", "key")
+        prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        self.assertIn("studentenwoning centrum", prompt)
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_long_text_truncated_in_prompt(self, MockAnthropic):
+        mock_client = self._mock_anthropic("NO")
+        MockAnthropic.return_value = mock_client
+        long_text = "x" * 5000
+        self.classify(long_text, "key")
+        prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        # Prompt must be bounded even for very long input
+        self.assertLess(len(prompt), 6000)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scanner — description fetching
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestFetchListingDescription(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.fetch = scanner.fetch_listing_description
+
+    @patch("scanner.requests.get")
+    def test_pararius_description_extracted(self, mock_get):
+        html = ('<html><body>'
+                '<div class="listing-detail-description">'
+                'Exclusief voor studenten. Bewijs van inschrijving vereist.'
+                '</div></body></html>')
+        mock_get.return_value = MagicMock(status_code=200, text=html)
+        result = self.fetch("https://www.pararius.nl/huurwoning/amsterdam/abc12345/x", "Pararius")
+        self.assertIn("studenten", result)
+
+    @patch("scanner.requests.get")
+    def test_pararius_additional_description_selector(self, mock_get):
+        html = ('<html><body>'
+                '<div class="listing-detail-description__additional">'
+                'Student only, proof of enrollment required.'
+                '</div></body></html>')
+        mock_get.return_value = MagicMock(status_code=200, text=html)
+        result = self.fetch("https://www.pararius.nl/x", "Pararius")
+        self.assertIn("Student only", result)
+
+    @patch("scanner.requests.get")
+    def test_funda_description_extracted(self, mock_get):
+        html = ('<html><body>'
+                '<div class="object-description-body">'
+                'Ruime woning in het centrum. Ideaal voor gezinnen.'
+                '</div></body></html>')
+        mock_get.return_value = MagicMock(status_code=200, text=html)
+        result = self.fetch("https://www.funda.nl/detail/huur/amsterdam/x-1234567/", "Funda")
+        self.assertIn("woning", result)
+
+    @patch("scanner.requests.get")
+    def test_non_200_returns_empty(self, mock_get):
+        mock_get.return_value = MagicMock(status_code=403, text="Forbidden")
+        self.assertEqual(self.fetch("https://example.com", "Pararius"), "")
+
+    @patch("scanner.requests.get")
+    def test_connection_error_returns_empty(self, mock_get):
+        mock_get.side_effect = Exception("Connection refused")
+        self.assertEqual(self.fetch("https://example.com", "Pararius"), "")
+
+    @patch("scanner.requests.get")
+    def test_description_capped_at_3000_chars(self, mock_get):
+        long = "a" * 5000
+        html = f'<html><body><div class="listing-detail-description">{long}</div></body></html>'
+        mock_get.return_value = MagicMock(status_code=200, text=html)
+        result = self.fetch("https://example.com", "Pararius")
+        self.assertLessEqual(len(result), 3000)
+
+    @patch("scanner.requests.get")
+    def test_missing_description_div_returns_empty(self, mock_get):
+        html = "<html><body><p>No matching div here</p></body></html>"
+        mock_get.return_value = MagicMock(status_code=200, text=html)
+        self.assertEqual(self.fetch("https://example.com", "Pararius"), "")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scanner — enrich_with_student_flag
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestEnrichWithStudentFlag(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.enrich = scanner.enrich_with_student_flag
+
+    def _listing(self, lid="funda-1234567") -> dict:
+        return {"id": lid, "source": "Funda", "url": "https://x.com", "title": "T"}
+
+    @patch("scanner.classify_student_listing", return_value=True)
+    @patch("scanner.fetch_listing_description", return_value="Alleen voor studenten")
+    def test_student_listing_flagged(self, _fetch, _classify):
+        listings = [self._listing()]
+        self.enrich(listings, "key")
+        self.assertTrue(listings[0]["student"])
+
+    @patch("scanner.classify_student_listing", return_value=False)
+    @patch("scanner.fetch_listing_description", return_value="Ruime woning")
+    def test_normal_listing_not_flagged(self, _fetch, _classify):
+        listings = [self._listing()]
+        self.enrich(listings, "key")
+        self.assertFalse(listings[0]["student"])
+
+    def test_no_api_key_all_default_false(self):
+        listings = [self._listing()]
+        self.enrich(listings, "")
+        self.assertFalse(listings[0]["student"])
+
+    def test_no_api_key_still_sets_student_key(self):
+        listings = [self._listing()]
+        self.enrich(listings, "")
+        self.assertIn("student", listings[0])
+
+    @patch("scanner.classify_student_listing", return_value=False)
+    @patch("scanner.fetch_listing_description", return_value="")
+    def test_all_listings_processed(self, mock_fetch, mock_classify):
+        listings = [self._listing(f"funda-{i}000000") for i in range(1, 4)]
+        self.enrich(listings, "key")
+        self.assertEqual(mock_fetch.call_count, 3)
+        self.assertEqual(mock_classify.call_count, 3)
+
+    @patch("scanner.classify_student_listing", return_value=False)
+    @patch("scanner.fetch_listing_description", return_value="")
+    def test_fetch_called_with_correct_url_and_source(self, mock_fetch, _classify):
+        listing = {"id": "pararius-abc123", "source": "Pararius",
+                   "url": "https://www.pararius.nl/x", "title": "T"}
+        self.enrich([listing], "key")
+        mock_fetch.assert_called_once_with("https://www.pararius.nl/x", "Pararius")
+
+    @patch("scanner.classify_student_listing", return_value=False)
+    @patch("scanner.fetch_listing_description", return_value="desc")
+    def test_classify_called_with_description(self, _fetch, mock_classify):
+        _fetch.return_value = "some description text"
+        listings = [self._listing()]
+        self.enrich(listings, "test-key")
+        mock_classify.assert_called_once_with("some description text", "test-key")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scraper — Pararius HTML parsing
+# ══════════════════════════════════════════════════════════════════════════════
+
+PARARIUS_HTML = """
+<html><body><ul>
+  <li class="search-list__item--listing">
+    <a class="listing-search-item__link--title"
+       href="/huurwoning/amsterdam/aabbccdd/mooie-straat-10"
+       aria-label="Mooie Straat 10, Amsterdam">Mooie Straat 10</a>
+    <div class="listing-search-item__price">€ 1.750 per maand</div>
+    <ul class="illustrated-features">
+      <li class="illustrated-features__item illustrated-features__item--surface-area">75 m²</li>
+      <li class="illustrated-features__item illustrated-features__item--number-of-rooms">3 kamers</li>
+      <li class="illustrated-features__item illustrated-features__item--energy-label">A</li>
+    </ul>
+    <span class="listing-search-item__broker-name">Makelaardij Centrum</span>
+  </li>
+  <li class="search-list__item--listing">
+    <a class="listing-search-item__link--title"
+       href="/huurwoning/amsterdam/11223344/tweede-straat-5"
+       aria-label="Tweede Straat 5, Amsterdam">Tweede Straat 5</a>
+    <div class="listing-search-item__price">€ 2.200 per maand</div>
+    <ul class="illustrated-features">
+      <li class="illustrated-features__item illustrated-features__item--surface-area">90 m²</li>
+      <li class="illustrated-features__item illustrated-features__item--number-of-rooms">4 kamers</li>
+      <li class="illustrated-features__item illustrated-features__item--energy-label">B</li>
+    </ul>
+  </li>
+</ul></body></html>
+"""
+
+
+class TestParariusScraper(unittest.TestCase):
+
+    def _page(self, html: str) -> MagicMock:
+        page = MagicMock()
+        page.content.return_value = html
+        return page
+
+    def _scrape(self, html: str = PARARIUS_HTML, city: str = "amsterdam") -> list:
+        import scanner
+        return scanner.scrape_pararius(city, self._page(html))
+
+    def test_returns_two_listings(self):
+        self.assertEqual(len(self._scrape()), 2)
+
+    def test_id_format(self):
+        results = self._scrape()
+        self.assertEqual(results[0]["id"], "pararius-aabbccdd")
+        self.assertEqual(results[1]["id"], "pararius-11223344")
+
+    def test_title_from_aria_label(self):
+        self.assertIn("Mooie Straat 10", self._scrape()[0]["title"])
+
+    def test_price(self):
+        self.assertIn("1.750", self._scrape()[0]["price"])
+
+    def test_size(self):
+        self.assertEqual(self._scrape()[0]["size"], "75 m²")
+
+    def test_rooms(self):
+        self.assertEqual(self._scrape()[0]["rooms"], "3")
+
+    def test_energy(self):
+        self.assertEqual(self._scrape()[0]["energy"], "A")
+
+    def test_agency_present(self):
+        self.assertEqual(self._scrape()[0]["agency"], "Makelaardij Centrum")
+
+    def test_agency_absent_is_empty_string(self):
+        self.assertEqual(self._scrape()[1]["agency"], "")
+
+    def test_url_is_absolute(self):
+        url = self._scrape()[0]["url"]
+        self.assertTrue(url.startswith("https://www.pararius.nl"))
+
+    def test_source_is_pararius(self):
+        self.assertEqual(self._scrape()[0]["source"], "Pararius")
+
+    def test_city_set_correctly(self):
+        self.assertEqual(self._scrape(city="utrecht")[0]["city"], "utrecht")
+
+    def test_empty_page_returns_empty_list(self):
+        self.assertEqual(self._scrape("<html><body><ul></ul></body></html>"), [])
+
+    def test_timeout_returns_empty_list(self):
+        import scanner
+        from playwright.sync_api import TimeoutError as PwTimeoutError
+        page = MagicMock()
+        page.goto.side_effect = PwTimeoutError("timeout")
+        self.assertEqual(scanner.scrape_pararius("amsterdam", page), [])
+
+    def test_details_string_contains_size_and_rooms(self):
+        details = self._scrape()[0]["details"]
+        self.assertIn("75 m²", details)
+        self.assertIn("3 bedrooms", details)
+
+    def test_details_string_contains_agency(self):
+        details = self._scrape()[0]["details"]
+        self.assertIn("Makelaardij Centrum", details)
+
+    def test_second_listing_price(self):
+        self.assertIn("2.200", self._scrape()[1]["price"])
+
+    def test_second_listing_energy(self):
+        self.assertEqual(self._scrape()[1]["energy"], "B")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Scraper — Funda HTML parsing
+# ══════════════════════════════════════════════════════════════════════════════
+
+FUNDA_HTML = """
+<html><body><ul>
+  <li>
+    <a href="/detail/huur/amsterdam/test-straat/12345678/">
+      <p>Test Straat 1, Amsterdam</p>
+    </a>
+    <span>€ 2.100 /mnd</span>
+    <span>85 m²</span>
+    <span>3 kamers</span>
+    <a href="/makelaar/test-makelaardij-amsterdam/">Test Makelaardij</a>
+  </li>
+  <li>
+    <a href="/detail/huur/amsterdam/andere-straat/99887766/">
+      <p>Andere Straat 9</p>
+    </a>
+    <span>€ 1.800 /mnd</span>
+    <span>65 m²</span>
+    <span>2 kamers</span>
+  </li>
+</ul></body></html>
+"""
+
+
+class TestFundaScraper(unittest.TestCase):
+
+    def _driver(self, html: str) -> MagicMock:
+        driver = MagicMock()
+        driver.page_source = html
+        return driver
+
+    def _scrape(self, html: str = FUNDA_HTML, cities: list = None):
+        import scanner
+        cities = cities or ["amsterdam"]
+        with patch("scanner.uc.Chrome") as MockChrome, \
+             patch("scanner.WebDriverWait") as MockWait, \
+             patch("scanner._chrome_major_version", return_value=0), \
+             patch("scanner.time.sleep"):
+            MockChrome.return_value = self._driver(html)
+            MockWait.return_value.until.return_value = True
+            return scanner.scrape_funda_all_cities(cities)
+
+    def test_returns_two_listings(self):
+        self.assertEqual(len(self._scrape()), 2)
+
+    def test_id_format(self):
+        results = self._scrape()
+        self.assertEqual(results[0]["id"], "funda-12345678")
+
+    def test_second_listing_id(self):
+        results = self._scrape()
+        self.assertEqual(results[1]["id"], "funda-99887766")
+
+    def test_price_parsed(self):
+        self.assertIn("2.100", self._scrape()[0]["price"])
+
+    def test_size_parsed(self):
+        self.assertEqual(self._scrape()[0]["size"], "85 m²")
+
+    def test_rooms_parsed(self):
+        self.assertEqual(self._scrape()[0]["rooms"], "3")
+
+    def test_agency_parsed(self):
+        self.assertEqual(self._scrape()[0]["agency"], "Test Makelaardij")
+
+    def test_no_agency_is_empty_string(self):
+        self.assertEqual(self._scrape()[1]["agency"], "")
+
+    def test_source_is_funda(self):
+        self.assertEqual(self._scrape()[0]["source"], "Funda")
+
+    def test_city_set_correctly(self):
+        self.assertEqual(self._scrape()[0]["city"], "amsterdam")
+
+    def test_url_is_absolute(self):
+        url = self._scrape()[0]["url"]
+        self.assertTrue(url.startswith("https://www.funda.nl"))
+
+    def test_deduplication_prevents_duplicate_ids(self):
+        dup_html = FUNDA_HTML.replace(
+            "</ul>",
+            '<li><a href="/detail/huur/amsterdam/test-straat/12345678/"></a></li></ul>',
+        )
+        results = self._scrape(dup_html)
+        ids = [r["id"] for r in results]
+        self.assertEqual(len(ids), len(set(ids)), "Duplicate listing IDs found")
+
+    def test_timeout_skips_city_returns_empty(self):
+        import scanner
+        from selenium.common.exceptions import TimeoutException
+        with patch("scanner.uc.Chrome") as MockChrome, \
+             patch("scanner.WebDriverWait") as MockWait, \
+             patch("scanner._chrome_major_version", return_value=0), \
+             patch("scanner.time.sleep"):
+            MockChrome.return_value = self._driver("")
+            MockWait.return_value.until.side_effect = TimeoutException()
+            results = scanner.scrape_funda_all_cities(["amsterdam"])
+        self.assertEqual(results, [])
+
+    def test_driver_quit_called_on_success(self):
+        import scanner
+        driver = self._driver(FUNDA_HTML)
+        with patch("scanner.uc.Chrome", return_value=driver), \
+             patch("scanner.WebDriverWait") as MockWait, \
+             patch("scanner._chrome_major_version", return_value=0), \
+             patch("scanner.time.sleep"):
+            MockWait.return_value.until.return_value = True
+            scanner.scrape_funda_all_cities(["amsterdam"])
+        driver.quit.assert_called_once()
+
+    def test_driver_quit_called_on_exception(self):
+        import scanner
+        driver = self._driver("")
+        with patch("scanner.uc.Chrome", return_value=driver), \
+             patch("scanner.WebDriverWait") as MockWait, \
+             patch("scanner._chrome_major_version", return_value=0), \
+             patch("scanner.time.sleep"):
+            MockWait.return_value.until.side_effect = Exception("crash")
+            scanner.scrape_funda_all_cities(["amsterdam"])
+        driver.quit.assert_called_once()
+
+    def test_multiple_cities_scrape_all(self):
+        import scanner
+        driver = self._driver(FUNDA_HTML)
+        with patch("scanner.uc.Chrome", return_value=driver), \
+             patch("scanner.WebDriverWait") as MockWait, \
+             patch("scanner._chrome_major_version", return_value=0), \
+             patch("scanner.time.sleep"):
+            MockWait.return_value.until.return_value = True
+            results = scanner.scrape_funda_all_cities(["amsterdam", "utrecht"])
+        # 2 cities × 2 listings each = 4 (city field differs so no dedup)
+        self.assertEqual(len(results), 4)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Flask UI — route tests
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestFlaskRoutes(unittest.TestCase):
+
+    def setUp(self):
+        self.db_path = _tmp_db()
+        self.db_patcher = patch("db.DB_FILE", self.db_path)
+        self.db_patcher.start()
+        import db
+        db.init_db()
+        self.db = db
+
+        import app as flask_app
+        flask_app.app.config["TESTING"] = True
+        flask_app.app.config["WTF_CSRF_ENABLED"] = False
+        self.client = flask_app.app.test_client()
+
+    def tearDown(self):
+        self.db_patcher.stop()
+        os.unlink(self.db_path)
+
+    # static pages ─────────────────────────────────────────────────────────────
+
+    def test_index_returns_200(self):
+        self.assertEqual(self.client.get("/").status_code, 200)
+
+    def test_subscribers_page_returns_200(self):
+        self.assertEqual(self.client.get("/subscribers").status_code, 200)
+
+    def test_scanner_status_returns_json(self):
+        r = self.client.get("/scanner/status")
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.data)
+        self.assertIn("running", data)
+        self.assertIn("next_run_at", data)
+
+    # subscriber management ────────────────────────────────────────────────────
+
+    def test_add_subscriber_creates_record(self):
+        self.client.post("/subscribers/add", data={
+            "email": "new@example.com", "first_name": "New", "last_name": "User",
+        }, follow_redirects=True)
+        subs = self.db.get_subscribers_with_queries()
+        emails = [s["email"] for s in subs]
+        self.assertIn("new@example.com", emails)
+
+    def test_add_subscriber_redirects(self):
+        r = self.client.post("/subscribers/add", data={
+            "email": "r@example.com", "first_name": "R", "last_name": "Test",
+        })
+        self.assertEqual(r.status_code, 302)
+
+    def test_add_subscriber_shows_flash_name(self):
+        r = self.client.post("/subscribers/add", data={
+            "email": "f@example.com", "first_name": "Flash", "last_name": "Gordon",
+        }, follow_redirects=True)
+        self.assertIn(b"Flash Gordon", r.data)
+
+    def test_remove_subscriber_soft_deletes(self):
+        sub_id = self.db.add_subscriber("del@example.com", "Del", "Me")
+        self.client.post(f"/subscribers/remove/{sub_id}", follow_redirects=True)
+        emails = [s["email"] for s in self.db.get_subscribers_with_queries()]
+        self.assertNotIn("del@example.com", emails)
+
+    # query management ─────────────────────────────────────────────────────────
+
+    def _sub_queries(self, sub_id: int) -> list:
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sub_id)
+        return sub["queries"]
+
+    def test_add_query_without_student_defaults_to_0(self):
+        sub_id = self.db.add_subscriber("q@example.com", "Q", "Test")
+        self.client.post(f"/subscribers/{sub_id}/queries/add", data={
+            "customer_name": "John", "cities": ["amsterdam"],
+            "min_price": "1000", "max_price": "2000", "min_rooms": "2",
+        }, follow_redirects=True)
+        q = self._sub_queries(sub_id)[0]
+        self.assertEqual(q["customer_name"], "John")
+        self.assertEqual(q["student"], 0)
+
+    def test_add_query_with_student_checkbox_sets_1(self):
+        sub_id = self.db.add_subscriber("s@example.com", "S", "Test")
+        self.client.post(f"/subscribers/{sub_id}/queries/add", data={
+            "customer_name": "Student Maria", "cities": ["amsterdam"], "student": "1",
+        }, follow_redirects=True)
+        self.assertEqual(self._sub_queries(sub_id)[0]["student"], 1)
+
+    def test_add_query_student_unchecked_means_0(self):
+        """When the checkbox is not ticked, 'student' is absent from POST data."""
+        sub_id = self.db.add_subscriber("ns@example.com", "NS", "Test")
+        self.client.post(f"/subscribers/{sub_id}/queries/add", data={
+            "customer_name": "Normal Bob", "cities": ["amsterdam"],
+            # 'student' key intentionally omitted
+        }, follow_redirects=True)
+        self.assertEqual(self._sub_queries(sub_id)[0]["student"], 0)
+
+    def test_remove_query_soft_deletes(self):
+        sub_id = self.db.add_subscriber("rq@example.com", "R", "Q")
+        qid = self.db.add_customer_query(sub_id, "Remove Me", ["amsterdam"], None, None, None)
+        self.client.post(f"/queries/remove/{qid}", follow_redirects=True)
+        self.assertEqual(len(self.db.get_subscribers_with_queries()[0]["queries"]), 0)
+
+    def test_add_query_flash_message(self):
+        sub_id = self.db.add_subscriber("fm@example.com", "FM", "Test")
+        r = self.client.post(f"/subscribers/{sub_id}/queries/add", data={
+            "customer_name": "Flash Query", "cities": ["amsterdam"],
+        }, follow_redirects=True)
+        self.assertIn(b"Flash Query", r.data)
+
+    # UI content ───────────────────────────────────────────────────────────────
+
+    def test_student_checkbox_present_in_form(self):
+        # Need a subscriber so the "Add query" form is rendered
+        self.db.add_subscriber("form@example.com", "Form", "Test")
+        r = self.client.get("/subscribers")
+        self.assertIn(b'name="student"', r.data)
+
+    def test_student_checkbox_label_text(self):
+        self.db.add_subscriber("label@example.com", "Label", "Test")
+        r = self.client.get("/subscribers")
+        self.assertIn(b"Student?", r.data)
+
+    def test_student_pill_shown_for_student_query(self):
+        sub_id = self.db.add_subscriber("pill@example.com", "Pill", "Test")
+        self.db.add_customer_query(sub_id, "Student Q", ["amsterdam"],
+                                   None, None, None, student=True)
+        r = self.client.get("/subscribers")
+        # The rendered pill has class="pill pill-student" in the HTML body
+        self.assertIn(b'class="pill pill-student"', r.data)
+
+    def test_student_pill_not_shown_for_non_student_query(self):
+        sub_id = self.db.add_subscriber("nopill@example.com", "No", "Pill")
+        self.db.add_customer_query(sub_id, "Normal Q", ["amsterdam"],
+                                   None, None, None, student=False)
+        r = self.client.get("/subscribers")
+        # CSS definition contains "pill-student" — check the rendered class attribute instead
+        self.assertNotIn(b'class="pill pill-student"', r.data)
+
+    def test_query_cities_shown_in_ui(self):
+        sub_id = self.db.add_subscriber("city@example.com", "City", "Test")
+        self.db.add_customer_query(sub_id, "City Q", ["amsterdam", "utrecht"],
+                                   None, None, None)
+        r = self.client.get("/subscribers")
+        self.assertIn(b"Amsterdam", r.data)
+        self.assertIn(b"Utrecht", r.data)
+
+    def test_scope_update_returns_200(self):
+        r = self.client.post("/scope", data={"cities": ["amsterdam", "rotterdam"]},
+                             follow_redirects=True)
+        self.assertEqual(r.status_code, 200)
+
+    def test_run_scanner_endpoint_exists(self):
+        # Just check it responds; actual scraping is not triggered in tests
+        r = self.client.post("/scanner/run", follow_redirects=False)
+        self.assertIn(r.status_code, [200, 302])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

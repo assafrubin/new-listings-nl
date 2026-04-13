@@ -768,7 +768,8 @@ SUBSCRIBERS_TEMPLATE = """
       font-size: .75rem;
       color: #374151;
     }
-    .pill-city { background: #dbeafe; color: #1e40af; }
+    .pill-city    { background: #dbeafe; color: #1e40af; }
+    .pill-student { background: #fef3c7; color: #92400e; }
     .empty-queries { font-size: .83rem; color: #9ca3af; padding: 4px 0 10px; }
 
     /* Add query form */
@@ -897,6 +898,9 @@ SUBSCRIBERS_TEMPLATE = """
                     {% if q.min_rooms %}
                       <span class="pill">{{ q.min_rooms }}+ rooms</span>
                     {% endif %}
+                    {% if q.student %}
+                      <span class="pill pill-student">Student</span>
+                    {% endif %}
                   </div>
                   <form method="POST" action="/queries/remove/{{ q.id }}"
                         onsubmit="return confirm('Remove query for {{ q.customer_name }}?')">
@@ -938,6 +942,12 @@ SUBSCRIBERS_TEMPLATE = """
                     <label>Min rooms</label>
                     <input type="number" name="min_rooms" placeholder="e.g. 2" min="1" max="10">
                   </div>
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                  <label class="check-item" style="font-weight:600">
+                    <input type="checkbox" name="student" value="1">
+                    Student? <span style="font-weight:400;color:#6b7280;font-size:.85rem">(show student-only listings)</span>
+                  </label>
                 </div>
                 <div class="qform-actions">
                   <button type="submit" class="btn-sm">Save query</button>
@@ -989,11 +999,13 @@ def add_query(sub_id):
     min_price     = request.form.get("min_price") or None
     max_price     = request.form.get("max_price") or None
     min_rooms     = request.form.get("min_rooms") or None
+    student       = request.form.get("student") == "1"
     db.add_customer_query(
         sub_id, customer_name, cities,
         float(min_price) if min_price else None,
         float(max_price) if max_price else None,
         int(min_rooms)   if min_rooms else None,
+        student,
     )
     return redirect(url_for("subscribers", flash=f"Query for '{customer_name}' added."))
 

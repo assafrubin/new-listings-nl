@@ -62,7 +62,8 @@ def init_db():
                 phone      TEXT,
                 url        TEXT,
                 first_seen TEXT,
-                last_seen  TEXT
+                last_seen  TEXT,
+                student    INTEGER NOT NULL DEFAULT 0
             )
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_source     ON listings(source)")
@@ -97,6 +98,7 @@ def init_db():
                 min_price     REAL,
                 max_price     REAL,
                 min_rooms     INTEGER,
+                student       INTEGER NOT NULL DEFAULT 0,
                 created_at    TEXT NOT NULL,
                 active        INTEGER NOT NULL DEFAULT 1
             )
@@ -111,6 +113,11 @@ def init_db():
         lst_cols = {row[1] for row in c.execute("PRAGMA table_info(listings)")}
         if "city" not in lst_cols:
             c.execute("ALTER TABLE listings ADD COLUMN city TEXT NOT NULL DEFAULT ''")
+        if "student" not in lst_cols:
+            c.execute("ALTER TABLE listings ADD COLUMN student INTEGER NOT NULL DEFAULT 0")
+        cq_cols = {row[1] for row in c.execute("PRAGMA table_info(customer_queries)")}
+        if "student" not in cq_cols:
+            c.execute("ALTER TABLE customer_queries ADD COLUMN student INTEGER NOT NULL DEFAULT 0")
 
 
 # ── Read ───────────────────────────────────────────────────────────────────────
@@ -140,8 +147,8 @@ def upsert_listings(listings: list):
                 INSERT INTO listings
                     (id, source, city, title, price, price_num,
                      size, size_num, rooms, rooms_num,
-                     energy, agency, phone, url, first_seen, last_seen)
-                VALUES (?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?)
+                     energy, agency, phone, url, first_seen, last_seen, student)
+                VALUES (?,?,?,?,?,?, ?,?,?,?, ?,?,?,?,?,?,?)
                 ON CONFLICT(id) DO UPDATE SET
                     source    = excluded.source,
                     city      = CASE WHEN excluded.city     != '' THEN excluded.city     ELSE listings.city     END,
@@ -156,7 +163,8 @@ def upsert_listings(listings: list):
                     agency    = CASE WHEN excluded.agency   != '' THEN excluded.agency   ELSE listings.agency   END,
                     phone     = CASE WHEN excluded.phone    != '' THEN excluded.phone    ELSE listings.phone    END,
                     url       = CASE WHEN excluded.url      != '' THEN excluded.url      ELSE listings.url      END,
-                    last_seen = excluded.last_seen
+                    last_seen = excluded.last_seen,
+                    student   = CASE WHEN excluded.student = 1 THEN 1 ELSE listings.student END
             """, (
                 l.get("id", ""),
                 l.get("source", ""),
@@ -170,6 +178,7 @@ def upsert_listings(listings: list):
                 l.get("phone", ""),
                 l.get("url", ""),
                 now, now,
+                1 if l.get("student") else 0,
             ))
 
 
@@ -185,7 +194,7 @@ def add_subscriber(email: str, first_name: str, last_name: str) -> int:
 
 
 def add_customer_query(subscriber_id: int, customer_name: str, cities: list,
-                       min_price, max_price, min_rooms) -> int:
+                       min_price, max_price, min_rooms, student: bool = False) -> int:
     import json as _json
     init_db()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -193,10 +202,10 @@ def add_customer_query(subscriber_id: int, customer_name: str, cities: list,
     with _conn() as c:
         cur = c.execute(
             """INSERT INTO customer_queries
-               (subscriber_id, customer_name, cities, min_price, max_price, min_rooms, created_at)
-               VALUES (?,?,?,?,?,?,?)""",
+               (subscriber_id, customer_name, cities, min_price, max_price, min_rooms, student, created_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
             (subscriber_id, customer_name.strip(), cities_json,
-             min_price or None, max_price or None, min_rooms or None, now),
+             min_price or None, max_price or None, min_rooms or None, 1 if student else 0, now),
         )
         return cur.lastrowid
 

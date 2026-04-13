@@ -32,6 +32,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
+import anthropic
 import db
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -289,6 +290,95 @@ def scrape_all(cities: List[str]) -> tuple:
     return pararius, funda
 
 
+# ── Student classification ─────────────────────────────────────────────────────
+
+_SCRAPE_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8",
+}
+
+
+def fetch_listing_description(url: str, source: str) -> str:
+    """
+    Fetch the description text from a listing detail page.
+    Returns an empty string if the page cannot be retrieved or parsed.
+    """
+    try:
+        resp = requests.get(url, headers=_SCRAPE_HEADERS, timeout=12)
+        if resp.status_code != 200:
+            return ""
+        soup = BeautifulSoup(resp.text, "lxml")
+        # Pararius detail page description selectors
+        if source == "Pararius":
+            desc = (
+                soup.select_one(".listing-detail-description__additional")
+                or soup.select_one(".listing-detail-description")
+                or soup.select_one("[class*='description']")
+            )
+        else:  # Funda
+            desc = (
+                soup.select_one(".object-description-body")
+                or soup.select_one(".object-description")
+                or soup.select_one("[class*='description']")
+            )
+        return desc.get_text(" ", strip=True)[:3000] if desc else ""
+    except Exception as e:
+        log.debug(f"Description fetch failed for {url}: {e}")
+        return ""
+
+
+def classify_student_listing(text: str, api_key: str) -> bool:
+    """
+    Use Claude to determine whether this listing is exclusively for students.
+    Returns True only if the listing explicitly restricts applicants to students.
+    """
+    if not text.strip() or not api_key:
+        return False
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = (
+            "You are analyzing a Dutch rental listing description.\n"
+            "Determine whether this listing is EXCLUSIVELY meant for students "
+            "(i.e. it explicitly states only students may apply, requires proof of enrollment, "
+            "uses terms like 'alleen voor studenten', 'studentenwoning', 'student only', etc.).\n\n"
+            f"Listing text:\n{text}\n\n"
+            "Reply with exactly one word: YES if it is student-only, NO otherwise. "
+            "When in doubt, answer NO."
+        )
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response.content[0].text.strip().upper()
+        return answer.startswith("YES")
+    except Exception as e:
+        log.warning(f"Student classification API error: {e}")
+        return False
+
+
+def enrich_with_student_flag(listings: List[dict], api_key: str):
+    """
+    For each listing (in-place), fetch its description and classify whether it
+    is a student-only listing.  Sets listing['student'] = True | False.
+    """
+    if not api_key:
+        log.warning("No Anthropic API key — skipping student classification (defaulting to False).")
+        for l in listings:
+            l["student"] = False
+        return
+
+    for l in listings:
+        desc = fetch_listing_description(l.get("url", ""), l.get("source", ""))
+        is_student = classify_student_listing(desc, api_key)
+        l["student"] = is_student
+        if is_student:
+            log.info(f"  STUDENT listing detected: {l.get('title')} ({l.get('url')})")
+
+
 # ── Subscriber matching ────────────────────────────────────────────────────────
 
 def matches_query(listing: dict, query: dict) -> bool:
@@ -303,6 +393,10 @@ def matches_query(listing: dict, query: dict) -> bool:
             return False
     rooms_num = db._parse_rooms(listing.get("rooms", ""))
     if rooms_num is not None and query.get("min_rooms") and rooms_num < query["min_rooms"]:
+        return False
+    # Student filter: if listing is student-only and the query is NOT marked as
+    # student-friendly, exclude the listing.
+    if listing.get("student") and not query.get("student"):
         return False
     return True
 
@@ -359,6 +453,8 @@ def _query_section_html(query: dict, listings: List[dict]) -> str:
         filter_parts.append(f"€{int(min_p) if min_p else '?'}–€{int(max_p) if max_p else '?'}/mo")
     if min_r:
         filter_parts.append(f"{min_r}+ room(s)")
+    if query.get("student"):
+        filter_parts.append("Student listings")
     filter_str = "  ·  ".join(p for p in filter_parts if p)
 
     rows = "".join(
@@ -433,6 +529,7 @@ def notify_subscribers(new_listings: List[dict], notify_cfg: dict):
 def main():
     cfg  = load_config()
     ntfy = cfg.get("notifications", {})
+    anthropic_key = cfg.get("anthropic_api_key", "").strip()
 
     log.info("=== Scan started ===")
     seen   = db.get_seen_ids()
@@ -451,6 +548,8 @@ def main():
     if new:
         for l in new:
             log.info(f"  NEW  [{l['source']}] {l['title']} — {l['price']}  {l['url']}")
+        log.info(f"Classifying {len(new)} new listings for student-only content…")
+        enrich_with_student_flag(new, anthropic_key)
         db.upsert_listings(new)
         notify_subscribers(new, ntfy)
     else:

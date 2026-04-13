@@ -1,11 +1,8 @@
 {
+  "anthropic_api_key": "",
   "scrape": {
     "cities": [
-      "amsterdam",
-      "amstelveen",
-      "utrecht",
-      "den-haag",
-      "gouda"
+      "amsterdam"
     ]
   },
   "notifications": {
