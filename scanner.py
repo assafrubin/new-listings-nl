@@ -422,6 +422,74 @@ def send_whatsapp(message: str, cfg: dict):
     time.sleep(1)
 
 
+def send_whatsapp_group(group_id: str, message: str, cfg: dict):
+    """
+    Send a message to a WhatsApp group via Green-API.
+
+    Requires in config.json → notifications:
+      green_api_instance_id : your Green-API instance ID
+      green_api_token       : your Green-API token
+
+    group_id format: "120363043051405349@g.us"
+    Personal chats:  "31612345678@c.us"
+
+    Sign up and scan QR at https://green-api.com to link your personal number.
+    """
+    instance_id = cfg.get("green_api_instance_id", "").strip()
+    token       = cfg.get("green_api_token", "").strip()
+    if not instance_id or not token:
+        log.warning("WhatsApp group skipped — green_api_instance_id / green_api_token not set in config.json")
+        return
+    if not group_id:
+        return
+    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
+    try:
+        r = requests.post(url, json={"chatId": group_id, "message": message}, timeout=15)
+        if r.status_code == 200:
+            log.info(f"WhatsApp group message sent to {group_id}.")
+        else:
+            log.warning(f"Green-API {r.status_code}: {r.text[:200]}")
+    except Exception as e:
+        log.error(f"WhatsApp group error: {e}")
+
+
+def _format_whatsapp_message(query: dict, listings: List[dict]) -> str:
+    """
+    Format a WhatsApp-friendly plain-text notification for a set of matching listings.
+    WhatsApp supports *bold* and line breaks but not HTML.
+    """
+    name   = query.get("customer_name", "")
+    cities = " / ".join(c.title() for c in (query.get("cities") or []))
+    min_p  = query.get("min_price")
+    max_p  = query.get("max_price")
+    min_r  = query.get("min_rooms")
+
+    filter_parts = [cities]
+    if min_p or max_p:
+        filter_parts.append(f"€{int(min_p) if min_p else '?'}–€{int(max_p) if max_p else '?'}/mo")
+    if min_r:
+        filter_parts.append(f"{min_r}+ rooms")
+    if query.get("student"):
+        filter_parts.append("students")
+    filter_str = "  ·  ".join(p for p in filter_parts if p)
+
+    count = len(listings)
+    lines = [
+        f"*{count} new rental{'s' if count > 1 else ''} for {name}*",
+        filter_str,
+        "",
+    ]
+    for l in listings:
+        price   = l.get("price", "").replace(" per maand", "/mo")
+        details = "  ·  ".join(p for p in [l.get("size", ""), l.get("rooms", "") + " rooms" if l.get("rooms") else ""] if p)
+        lines.append(f"[{l['source']}]  {l['title']}")
+        if price:
+            lines.append(price + (f"  ·  {details}" if details else ""))
+        lines.append(l["url"])
+        lines.append("")
+    return "\n".join(lines).rstrip()
+
+
 def send_email(subject: str, html_body: str, to_addr: str, notify_cfg: dict):
     password  = notify_cfg.get("email_password", "").strip()
     from_addr = notify_cfg.get("email_from", "").strip()
@@ -497,19 +565,23 @@ def notify_subscribers(new_listings: List[dict], notify_cfg: dict):
     for sub in subscribers:
         if not sub.get("queries"):
             continue
-        sections = []
-        customer_names = []
+        sections        = []
+        wa_blocks       = []
+        customer_names  = []
         for query in sub["queries"]:
             matching = [l for l in new_listings if matches_query(l, query)]
             if matching:
                 sections.append(_query_section_html(query, matching))
+                wa_blocks.append(_format_whatsapp_message(query, matching))
                 customer_names.append(query.get("customer_name", ""))
                 log.info(f"  → {sub['email']} / {query.get('customer_name')}: {len(matching)} match(es)")
         if not sections:
             continue
 
-        now  = datetime.now().strftime("%d %b %Y %H:%M")
+        now       = datetime.now().strftime("%d %b %Y %H:%M")
         names_str = ", ".join(customer_names)
+
+        # ── email ──────────────────────────────────────────────────────────
         html = f"""
         <div style="font-family:sans-serif;max-width:740px">
           <p style="color:#888;font-size:12px;margin-bottom:20px">{now}</p>
@@ -522,6 +594,12 @@ def notify_subscribers(new_listings: List[dict], notify_cfg: dict):
             sub["email"],
             notify_cfg,
         )
+
+        # ── WhatsApp group ─────────────────────────────────────────────────
+        group_id = sub.get("whatsapp_group", "").strip()
+        if group_id and wa_blocks:
+            wa_message = ("\n\n" + "─" * 30 + "\n\n").join(wa_blocks)
+            send_whatsapp_group(group_id, wa_message, notify_cfg)
 
 
 # ── Main ───────────────────────────────────────────────────────────────────────

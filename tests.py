@@ -94,7 +94,8 @@ class TestDBSchema(unittest.TestCase):
     def test_subscribers_columns(self):
         self.db.init_db()
         cols = _cols(self.db_path, "subscribers")
-        for c in ["id", "email", "first_name", "last_name", "created_at", "active"]:
+        for c in ["id", "email", "first_name", "last_name",
+                  "whatsapp_group", "created_at", "active"]:
             self.assertIn(c, cols)
 
     def test_indexes_created(self):
@@ -221,6 +222,24 @@ class TestDBBackwardCompatibility(unittest.TestCase):
         ).fetchone()
         conn.close()
         self.assertEqual(row[0], 0)
+
+    def test_migrate_adds_whatsapp_group_to_subscribers(self):
+        self._create_legacy_schema()
+        self.db.init_db()
+        self.assertIn("whatsapp_group", _cols(self.db_path, "subscribers"))
+
+    def test_whatsapp_group_defaults_to_empty_after_migration(self):
+        self._create_legacy_schema()
+        # Insert a subscriber in the old schema
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("INSERT INTO subscribers (email, created_at) VALUES (?,?)",
+                     ("old@example.com", "2024-01-01T00:00:00Z"))
+        conn.commit(); conn.close()
+        self.db.init_db()
+        conn = sqlite3.connect(self.db_path)
+        row = conn.execute("SELECT whatsapp_group FROM subscribers WHERE email='old@example.com'").fetchone()
+        conn.close()
+        self.assertEqual(row[0], "")
 
     def test_migration_is_idempotent(self):
         """Running init_db() on an already-migrated DB must not raise."""
@@ -404,6 +423,28 @@ class TestDBSubscriberQueries(unittest.TestCase):
         ).fetchone()
         conn.close()
         self.assertEqual(active[0], 0)
+
+    def test_add_subscriber_default_whatsapp_group_empty(self):
+        subs = self.db.get_subscribers_with_queries()
+        self.assertEqual(subs[0]["whatsapp_group"], "")
+
+    def test_add_subscriber_with_whatsapp_group(self):
+        sid = self.db.add_subscriber("wa@example.com", "WA", "User",
+                                     whatsapp_group="120363043051405349@g.us")
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sid)
+        self.assertEqual(sub["whatsapp_group"], "120363043051405349@g.us")
+
+    def test_set_subscriber_whatsapp_group(self):
+        self.db.set_subscriber_whatsapp_group(self.sub_id, "120363043051405349@g.us")
+        subs = self.db.get_subscribers_with_queries()
+        self.assertEqual(subs[0]["whatsapp_group"], "120363043051405349@g.us")
+
+    def test_set_subscriber_whatsapp_group_clear(self):
+        self.db.set_subscriber_whatsapp_group(self.sub_id, "120363043051405349@g.us")
+        self.db.set_subscriber_whatsapp_group(self.sub_id, "")
+        subs = self.db.get_subscribers_with_queries()
+        self.assertEqual(subs[0]["whatsapp_group"], "")
 
     def test_record_scan_run(self):
         self.db.record_scan_run(["funda-1111111", "pararius-aaaaaaaa"])
@@ -822,6 +863,137 @@ class TestEnrichWithStudentFlag(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Scanner — WhatsApp group notifications
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestSendWhatsAppGroup(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.send = scanner.send_whatsapp_group
+
+    def _cfg(self, **kw):
+        base = {"green_api_instance_id": "1234567890", "green_api_token": "abc123token"}
+        base.update(kw)
+        return base
+
+    @patch("scanner.requests.post")
+    def test_sends_post_to_green_api(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self.send("120363043051405349@g.us", "Hello group!", self._cfg())
+        mock_post.assert_called_once()
+        url = mock_post.call_args.args[0]
+        self.assertIn("1234567890", url)
+        self.assertIn("abc123token", url)
+
+    @patch("scanner.requests.post")
+    def test_sends_correct_chat_id_and_message(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self.send("120363043051405349@g.us", "Test message", self._cfg())
+        payload = mock_post.call_args.kwargs["json"]
+        self.assertEqual(payload["chatId"], "120363043051405349@g.us")
+        self.assertEqual(payload["message"], "Test message")
+
+    @patch("scanner.requests.post")
+    def test_no_instance_id_skips(self, mock_post):
+        self.send("120363043051405349@g.us", "msg", self._cfg(green_api_instance_id=""))
+        mock_post.assert_not_called()
+
+    @patch("scanner.requests.post")
+    def test_no_token_skips(self, mock_post):
+        self.send("120363043051405349@g.us", "msg", self._cfg(green_api_token=""))
+        mock_post.assert_not_called()
+
+    @patch("scanner.requests.post")
+    def test_empty_group_id_skips(self, mock_post):
+        self.send("", "msg", self._cfg())
+        mock_post.assert_not_called()
+
+    @patch("scanner.requests.post")
+    def test_non_200_response_logs_warning(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=400, text="Bad Request")
+        # Should not raise, just log
+        self.send("120363043051405349@g.us", "msg", self._cfg())
+
+    @patch("scanner.requests.post")
+    def test_request_exception_does_not_raise(self, mock_post):
+        mock_post.side_effect = Exception("Connection refused")
+        self.send("120363043051405349@g.us", "msg", self._cfg())
+
+
+class TestFormatWhatsAppMessage(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.fmt = scanner._format_whatsapp_message
+
+    def _query(self, **kw):
+        base = dict(customer_name="John", cities=["amsterdam"],
+                    min_price=1500, max_price=2500, min_rooms=2, student=0)
+        base.update(kw)
+        return base
+
+    def _listing(self, **kw):
+        base = dict(source="Pararius", title="Keizersgracht 123",
+                    price="€ 2.000 per maand", size="75 m²",
+                    rooms="3", url="https://www.pararius.nl/x", student=False)
+        base.update(kw)
+        return base
+
+    def test_contains_customer_name(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("John", msg)
+
+    def test_contains_listing_title(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("Keizersgracht 123", msg)
+
+    def test_contains_listing_url(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("https://www.pararius.nl/x", msg)
+
+    def test_contains_source(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("Pararius", msg)
+
+    def test_contains_price_filter(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("1500", msg)
+        self.assertIn("2500", msg)
+
+    def test_contains_city(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("Amsterdam", msg)
+
+    def test_count_singular(self):
+        msg = self.fmt(self._query(), [self._listing()])
+        self.assertIn("1 new rental", msg)
+
+    def test_count_plural(self):
+        msg = self.fmt(self._query(), [self._listing(), self._listing(title="Prinsengracht 5")])
+        self.assertIn("2 new rentals", msg)
+
+    def test_student_filter_shown_when_set(self):
+        msg = self.fmt(self._query(student=1), [self._listing()])
+        self.assertIn("student", msg.lower())
+
+    def test_multiple_listings_all_present(self):
+        listings = [self._listing(title=f"Street {i}", url=f"https://x.com/{i}") for i in range(3)]
+        msg = self.fmt(self._query(), listings)
+        for i in range(3):
+            self.assertIn(f"Street {i}", msg)
+            self.assertIn(f"https://x.com/{i}", msg)
+
+    def test_no_rooms_filter_not_shown(self):
+        msg = self.fmt(self._query(min_rooms=None), [self._listing()])
+        self.assertNotIn("+ rooms", msg)
+
+    def test_funda_source(self):
+        msg = self.fmt(self._query(), [self._listing(source="Funda")])
+        self.assertIn("Funda", msg)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Scraper — Pararius HTML parsing
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1225,6 +1397,45 @@ class TestFlaskRoutes(unittest.TestCase):
         # Just check it responds; actual scraping is not triggered in tests
         r = self.client.post("/scanner/run", follow_redirects=False)
         self.assertIn(r.status_code, [200, 302])
+
+    # WhatsApp group ───────────────────────────────────────────────────────────
+
+    def test_set_whatsapp_group_saves_to_db(self):
+        sub_id = self.db.add_subscriber("wa@example.com", "WA", "Test")
+        self.client.post(f"/subscribers/{sub_id}/whatsapp-group",
+                         data={"group_id": "120363043051405349@g.us"},
+                         follow_redirects=True)
+        subs = self.db.get_subscribers_with_queries()
+        sub  = next(s for s in subs if s["id"] == sub_id)
+        self.assertEqual(sub["whatsapp_group"], "120363043051405349@g.us")
+
+    def test_clear_whatsapp_group(self):
+        sub_id = self.db.add_subscriber("wa2@example.com", "WA2", "Test")
+        self.db.set_subscriber_whatsapp_group(sub_id, "120363043051405349@g.us")
+        self.client.post(f"/subscribers/{sub_id}/whatsapp-group",
+                         data={"group_id": ""},
+                         follow_redirects=True)
+        subs = self.db.get_subscribers_with_queries()
+        sub  = next(s for s in subs if s["id"] == sub_id)
+        self.assertEqual(sub["whatsapp_group"], "")
+
+    def test_whatsapp_group_shown_in_ui(self):
+        sub_id = self.db.add_subscriber("show@example.com", "Show", "Test")
+        self.db.set_subscriber_whatsapp_group(sub_id, "120363043051405349@g.us")
+        r = self.client.get("/subscribers")
+        self.assertIn(b"120363043051405349@g.us", r.data)
+
+    def test_whatsapp_group_form_in_ui(self):
+        self.db.add_subscriber("form@example.com", "Form", "Test")
+        r = self.client.get("/subscribers")
+        self.assertIn(b"whatsapp-group", r.data)
+        self.assertIn(b"group_id", r.data)
+
+    def test_list_whatsapp_groups_no_credentials_returns_400(self):
+        r = self.client.get("/whatsapp-groups")
+        self.assertEqual(r.status_code, 400)
+        data = json.loads(r.data)
+        self.assertIn("error", data)
 
 
 if __name__ == "__main__":

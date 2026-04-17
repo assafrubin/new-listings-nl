@@ -772,6 +772,32 @@ SUBSCRIBERS_TEMPLATE = """
     .pill-student { background: #fef3c7; color: #92400e; }
     .empty-queries { font-size: .83rem; color: #9ca3af; padding: 4px 0 10px; }
 
+    /* WhatsApp group row */
+    .wa-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 0; border-top: 1px solid #f3f4f6; margin-top: 4px;
+      font-size: .85rem;
+    }
+    .wa-label { font-weight: 600; color: #374151; white-space: nowrap; }
+    .wa-group-id {
+      font-family: monospace; font-size: .82rem;
+      background: #f3f4f6; padding: 3px 8px; border-radius: 6px; color: #374151;
+    }
+    .wa-unset { color: #9ca3af; font-style: italic; }
+    .wa-edit-btn {
+      font-size: .78rem; padding: 3px 10px;
+      background: none; border: 1px solid #d1d5db; border-radius: 6px;
+      cursor: pointer; color: #6b7280;
+    }
+    .wa-edit-btn:hover { border-color: #e84e1b; color: #e84e1b; }
+    .wa-form { display: none; align-items: center; gap: 8px; flex: 1; }
+    .wa-form.open { display: flex; }
+    .wa-form input {
+      flex: 1; padding: 5px 10px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: .83rem; font-family: monospace;
+    }
+    .wa-form input:focus { outline: none; border-color: #e84e1b; }
+
     /* Add query form */
     .add-query-toggle {
       font-size: .82rem;
@@ -876,6 +902,32 @@ SUBSCRIBERS_TEMPLATE = """
             </form>
           </div>
 
+          <!-- WhatsApp group -->
+          <div class="wa-row">
+            <span class="wa-label">WhatsApp group</span>
+            <span id="wa-display-{{ sub.id }}">
+              {% if sub.whatsapp_group %}
+                <span class="wa-group-id">{{ sub.whatsapp_group }}</span>
+              {% else %}
+                <span class="wa-unset">Not configured</span>
+              {% endif %}
+            </span>
+            <button class="wa-edit-btn" onclick="toggleWaForm({{ sub.id }})">
+              {{ 'Edit' if sub.whatsapp_group else 'Set up' }}
+            </button>
+            <div class="wa-form" id="wa-form-{{ sub.id }}">
+              <form method="POST" action="/subscribers/{{ sub.id }}/whatsapp-group"
+                    style="display:flex;align-items:center;gap:8px;flex:1">
+                <input type="text" name="group_id"
+                       value="{{ sub.whatsapp_group }}"
+                       placeholder="e.g. 120363043051405349@g.us">
+                <button type="submit" class="btn-sm">Save</button>
+                <button type="button" class="cancel-btn"
+                        onclick="toggleWaForm({{ sub.id }})">Cancel</button>
+              </form>
+            </div>
+          </div>
+
           <!-- Queries -->
           <div class="queries-body">
             <div class="queries-label">Customer queries ({{ sub.queries | length }})</div>
@@ -966,6 +1018,12 @@ SUBSCRIBERS_TEMPLATE = """
       const form = btn.nextElementSibling;
       form.classList.toggle('open');
     }
+    function toggleWaForm(subId) {
+      const form    = document.getElementById('wa-form-' + subId);
+      const display = document.getElementById('wa-display-' + subId);
+      const isOpen  = form.classList.toggle('open');
+      if (display) display.style.display = isOpen ? 'none' : '';
+    }
   </script>
 </body>
 </html>
@@ -1018,6 +1076,44 @@ def remove_subscriber(sub_id):
 def remove_query(query_id):
     db.remove_customer_query(query_id)
     return redirect(url_for("subscribers", flash="Query removed."))
+
+@app.route("/subscribers/<int:sub_id>/whatsapp-group", methods=["POST"])
+def set_whatsapp_group(sub_id):
+    group_id = request.form.get("group_id", "").strip()
+    db.set_subscriber_whatsapp_group(sub_id, group_id)
+    msg = f"WhatsApp group {'updated' if group_id else 'cleared'}."
+    return redirect(url_for("subscribers", flash=msg))
+
+@app.route("/whatsapp-groups")
+def list_whatsapp_groups():
+    """
+    Helper endpoint: fetches all WhatsApp chats from Green-API and returns
+    them as JSON so you can identify your group IDs.
+    GET /whatsapp-groups
+    """
+    import json as _json
+    try:
+        cfg = _json.load(open(CONFIG_FILE))
+    except Exception:
+        cfg = {}
+    ntfy        = cfg.get("notifications", {})
+    instance_id = ntfy.get("green_api_instance_id", "").strip()
+    token       = ntfy.get("green_api_token", "").strip()
+    if not instance_id or not token:
+        return jsonify({"error": "green_api_instance_id / green_api_token not set in config.json"}), 400
+    import requests as _req
+    try:
+        url = f"https://api.green-api.com/waInstance{instance_id}/getChats/{token}"
+        r   = _req.get(url, timeout=15)
+        chats = r.json() if r.status_code == 200 else []
+        groups = [
+            {"id": c.get("id", ""), "name": c.get("name", "")}
+            for c in chats
+            if str(c.get("id", "")).endswith("@g.us")
+        ]
+        return jsonify({"groups": groups})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

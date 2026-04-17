@@ -80,12 +80,13 @@ def init_db():
         """)
         c.execute("""
             CREATE TABLE IF NOT EXISTS subscribers (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                email      TEXT NOT NULL,
-                first_name TEXT NOT NULL DEFAULT '',
-                last_name  TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL,
-                active     INTEGER NOT NULL DEFAULT 1
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                email            TEXT NOT NULL,
+                first_name       TEXT NOT NULL DEFAULT '',
+                last_name        TEXT NOT NULL DEFAULT '',
+                whatsapp_group   TEXT NOT NULL DEFAULT '',
+                created_at       TEXT NOT NULL,
+                active           INTEGER NOT NULL DEFAULT 1
             )
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_sub_email ON subscribers(email)")
@@ -110,6 +111,8 @@ def init_db():
             c.execute("ALTER TABLE subscribers ADD COLUMN first_name TEXT NOT NULL DEFAULT ''")
         if "last_name" not in sub_cols:
             c.execute("ALTER TABLE subscribers ADD COLUMN last_name TEXT NOT NULL DEFAULT ''")
+        if "whatsapp_group" not in sub_cols:
+            c.execute("ALTER TABLE subscribers ADD COLUMN whatsapp_group TEXT NOT NULL DEFAULT ''")
         lst_cols = {row[1] for row in c.execute("PRAGMA table_info(listings)")}
         if "city" not in lst_cols:
             c.execute("ALTER TABLE listings ADD COLUMN city TEXT NOT NULL DEFAULT ''")
@@ -182,15 +185,28 @@ def upsert_listings(listings: list):
             ))
 
 
-def add_subscriber(email: str, first_name: str, last_name: str) -> int:
+def add_subscriber(email: str, first_name: str, last_name: str,
+                   whatsapp_group: str = "") -> int:
     init_db()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     with _conn() as c:
         cur = c.execute(
-            "INSERT INTO subscribers (email, first_name, last_name, created_at) VALUES (?,?,?,?)",
-            (email.strip().lower(), first_name.strip(), last_name.strip(), now),
+            "INSERT INTO subscribers (email, first_name, last_name, whatsapp_group, created_at) "
+            "VALUES (?,?,?,?,?)",
+            (email.strip().lower(), first_name.strip(), last_name.strip(),
+             whatsapp_group.strip(), now),
         )
         return cur.lastrowid
+
+
+def set_subscriber_whatsapp_group(subscriber_id: int, group_id: str):
+    """Set or clear the WhatsApp group chat ID for a subscriber."""
+    init_db()
+    with _conn() as c:
+        c.execute(
+            "UPDATE subscribers SET whatsapp_group=? WHERE id=?",
+            (group_id.strip(), subscriber_id),
+        )
 
 
 def add_customer_query(subscriber_id: int, customer_name: str, cities: list,
