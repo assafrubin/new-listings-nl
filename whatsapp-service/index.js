@@ -17,6 +17,7 @@
  *   PORT        HTTP port (default: 3001)
  *   API_TOKEN   Bearer token for auth — leave empty to disable auth
  *   CHROME_PATH Path to Chrome/Chromium binary (optional; uses bundled if unset)
+ *   SCANNER_URL Base URL of the Python scanner app (default: http://localhost:5001)
  *
  * Adding new WhatsApp commands
  * ----------------------------
@@ -33,13 +34,110 @@
 
 const express = require("express");
 const qrcode = require("qrcode");
+const https = require("https");
+const http = require("http");
 const wa = require("./whatsapp");
-// const commands = require('./commands')  // uncomment to add commands here
+const commands = require("./commands");
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const API_TOKEN = (process.env.API_TOKEN || "").trim();
+// URL of the Python scanner app — used to call the filter webhook
+const SCANNER_URL = (process.env.SCANNER_URL || "http://localhost:5001").replace(/\/$/, "");
+
+// ── "add filter" WhatsApp command ────────────────────────────────────────────
+//
+// Usage: reply to any bot-sent listing notification with a message that starts
+// with "add filter" (case-insensitive) followed by your instruction.
+//
+// Example:
+//   (replying to a listing message)
+//   "add filter: don't show me corner houses"
+//
+// The bot will:
+//   1. Parse the customer name(s) from the quoted message
+//   2. POST to the Python scanner's /api/whatsapp-filter endpoint
+//   3. Reply with a confirmation showing the updated filter
+
+commands.register(
+  "add filter",
+  async (msg, client, args) => {
+    if (!msg.hasQuotedMsg) {
+      await msg.reply(
+        "Please *reply* to a specific listing notification to set the filter.\n" +
+        "Example: reply to a listing and say: _add filter: no corner houses_"
+      );
+      return;
+    }
+
+    const quoted = await msg.getQuotedMessage();
+
+    // Only act on replies to messages sent by the bot itself
+    if (!quoted.fromMe) {
+      await msg.reply("Please reply to one of my listing messages to set a filter.");
+      return;
+    }
+
+    if (!args) {
+      await msg.reply("Please describe what to filter after 'add filter', e.g.:\n_add filter: no corner houses_");
+      return;
+    }
+
+    const chat = await msg.getChat();
+    const groupId = chat.id._serialized;
+
+    try {
+      const result = await callScanner("/api/whatsapp-filter", {
+        group_id:       groupId,
+        quoted_message: quoted.body,
+        filter_text:    args,
+      });
+
+      if (result.error) {
+        await msg.reply(`Could not update filter: ${result.error}`);
+        return;
+      }
+
+      const lines = result.acknowledgements.map(
+        (a) => `*${a.customer_name}*: _${a.new_filter}_`
+      );
+      await msg.reply(
+        `Filter updated for:\n\n${lines.join("\n\n")}\n\n` +
+        `This filter will apply to all future listing notifications.`
+      );
+    } catch (err) {
+      console.error("[CMD] add filter error:", err.message);
+      await msg.reply("Error updating filter — is the scanner app running?");
+    }
+  },
+  "Reply to a listing to set a filter: add filter: <description>"
+);
+
+/** POST JSON to the scanner app and return the parsed response. */
+function callScanner(path, body) {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify(body);
+    const url = new URL(SCANNER_URL + path);
+    const lib = url.protocol === "https:" ? https : http;
+    const req = lib.request(
+      { hostname: url.hostname, port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname, method: "POST",
+        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } },
+      (res) => {
+        let data = "";
+        res.on("data", (c) => (data += c));
+        res.on("end", () => {
+          try { resolve(JSON.parse(data)); }
+          catch { resolve({ error: "Invalid response from scanner" }); }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(payload);
+    req.end();
+  });
+}
 
 // ── HTTP server ───────────────────────────────────────────────────────────────
 

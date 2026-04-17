@@ -863,6 +863,199 @@ class TestEnrichWithStudentFlag(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Scanner — free-text filter
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestCheckFreeTextFilter(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.check = scanner.check_free_text_filter
+
+    def _mock_client(self, answer):
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text=answer)]
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_response
+        return mock_client
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_returns_false_when_listing_violates_filter(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_client("YES")
+        result = self.check("Corner house listing", "No corner houses", "key")
+        self.assertFalse(result)
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_returns_true_when_listing_acceptable(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_client("NO")
+        result = self.check("City centre apartment", "No corner houses", "key")
+        self.assertTrue(result)
+
+    def test_empty_filter_always_includes(self):
+        result = self.check("any description", "", "key")
+        self.assertTrue(result)
+
+    def test_no_api_key_always_includes(self):
+        result = self.check("any description", "no corner houses", "")
+        self.assertTrue(result)
+
+    def test_empty_description_always_includes(self):
+        result = self.check("", "no corner houses", "key")
+        self.assertTrue(result)
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_api_error_includes_listing(self, MockAnthropic):
+        MockAnthropic.return_value.messages.create.side_effect = Exception("API error")
+        result = self.check("some description", "no corner houses", "key")
+        self.assertTrue(result)
+
+
+class TestMergeFreeTextFilter(unittest.TestCase):
+
+    def setUp(self):
+        import scanner
+        self.merge = scanner.merge_free_text_filter
+
+    def _mock_client(self, answer):
+        mock_response = MagicMock()
+        mock_response.content = [MagicMock(text=answer)]
+        mock_client = MagicMock()
+        mock_client.messages.create.return_value = mock_response
+        return mock_client
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_merges_with_existing_filter(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_client("No corner houses. No ground floor.")
+        result = self.merge("No corner houses", "also no ground floor", "key")
+        self.assertEqual(result, "No corner houses. No ground floor.")
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_sets_filter_when_no_existing(self, MockAnthropic):
+        MockAnthropic.return_value = self._mock_client("No corner houses.")
+        result = self.merge("", "no corner houses", "key")
+        self.assertEqual(result, "No corner houses.")
+
+    def test_no_api_key_concatenates(self):
+        result = self.merge("No corner houses", "also no ground floor", "")
+        self.assertIn("No corner houses", result)
+        self.assertIn("also no ground floor", result)
+
+    @patch("scanner.anthropic.Anthropic")
+    def test_api_error_concatenates(self, MockAnthropic):
+        MockAnthropic.return_value.messages.create.side_effect = Exception("fail")
+        result = self.merge("existing", "new instruction", "key")
+        self.assertIn("existing", result)
+        self.assertIn("new instruction", result)
+
+
+class TestNotifySubscribersWithFreeTextFilter(unittest.TestCase):
+    """notify_subscribers applies the free-text filter via LLM."""
+
+    def setUp(self):
+        import tempfile, db as db_module, scanner
+        self.db_path = tempfile.mktemp(suffix=".db")
+        self.db_patcher = patch("db.DB_FILE", self.db_path)
+        self.db_patcher.start()
+        db_module.init_db()
+        self.db = db_module
+        self.scanner = scanner
+
+    def tearDown(self):
+        self.db_patcher.stop()
+        import os
+        try: os.unlink(self.db_path)
+        except: pass
+
+    @patch("scanner.send_whatsapp_group")
+    @patch("scanner.send_email")
+    @patch("scanner.check_free_text_filter")
+    def test_free_text_filter_excludes_listings(self, mock_check, mock_email, mock_wa):
+        mock_check.return_value = False  # all listings excluded by filter
+        sub_id = self.db.add_subscriber("a@example.com", "A", "B")
+        q_id = self.db.add_customer_query(
+            sub_id, "TestCustomer", ["amsterdam"],
+            None, None, None, False, "no corner houses"
+        )
+        listing = {
+            "id": "x1", "source": "Pararius", "city": "amsterdam",
+            "price": "€ 1500 per maand", "price_num": 1500.0,
+            "rooms": "2", "rooms_num": 2, "student": 0,
+            "title": "Test House", "url": "http://example.com", "_description": "corner house",
+        }
+        self.scanner.notify_subscribers([listing], {}, api_key="key")
+        mock_email.assert_not_called()
+
+    @patch("scanner.send_whatsapp_group")
+    @patch("scanner.send_email")
+    @patch("scanner.check_free_text_filter")
+    def test_no_filter_skips_llm_check(self, mock_check, mock_email, mock_wa):
+        sub_id = self.db.add_subscriber("b@example.com", "B", "C")
+        self.db.add_customer_query(sub_id, "TestCustomer", ["amsterdam"], None, None, None)
+        listing = {
+            "id": "x2", "source": "Pararius", "city": "amsterdam",
+            "price": "€ 1500 per maand", "price_num": 1500.0,
+            "rooms": "2", "rooms_num": 2, "student": 0,
+            "title": "Test", "url": "http://example.com",
+        }
+        self.scanner.notify_subscribers([listing], {}, api_key="key")
+        mock_check.assert_not_called()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DB — free_text_filter column
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestDBFreeTextFilter(unittest.TestCase):
+
+    def setUp(self):
+        import tempfile, db as db_module
+        self.db_path = tempfile.mktemp(suffix=".db")
+        self.db_patcher = patch("db.DB_FILE", self.db_path)
+        self.db_patcher.start()
+        db_module.init_db()
+        self.db = db_module
+
+    def tearDown(self):
+        self.db_patcher.stop()
+        import os
+        try: os.unlink(self.db_path)
+        except: pass
+
+    def test_add_query_with_filter(self):
+        sub_id = self.db.add_subscriber("t@example.com", "T", "T")
+        self.db.add_customer_query(
+            sub_id, "Alice", ["amsterdam"], None, None, None,
+            False, "no corner houses"
+        )
+        subs = self.db.get_subscribers_with_queries()
+        q = subs[0]["queries"][0]
+        self.assertEqual(q["free_text_filter"], "no corner houses")
+
+    def test_add_query_default_filter_empty(self):
+        sub_id = self.db.add_subscriber("t2@example.com", "T", "T")
+        self.db.add_customer_query(sub_id, "Bob", ["amsterdam"], None, None, None)
+        subs = self.db.get_subscribers_with_queries()
+        q = subs[0]["queries"][0]
+        self.assertEqual(q["free_text_filter"], "")
+
+    def test_update_query_filter(self):
+        sub_id = self.db.add_subscriber("t3@example.com", "T", "T")
+        q_id = self.db.add_customer_query(sub_id, "Carol", ["amsterdam"], None, None, None)
+        self.db.update_query_filter(q_id, "no ground floor apartments")
+        subs = self.db.get_subscribers_with_queries()
+        q = subs[0]["queries"][0]
+        self.assertEqual(q["free_text_filter"], "no ground floor apartments")
+
+    def test_update_query_filter_clear(self):
+        sub_id = self.db.add_subscriber("t4@example.com", "T", "T")
+        q_id = self.db.add_customer_query(sub_id, "Dave", ["amsterdam"], None, None, None,
+                                          False, "some filter")
+        self.db.update_query_filter(q_id, "")
+        subs = self.db.get_subscribers_with_queries()
+        self.assertEqual(subs[0]["queries"][0]["free_text_filter"], "")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # Scanner — WhatsApp group notifications
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1469,6 +1662,79 @@ class TestFlaskRoutes(unittest.TestCase):
         self.assertEqual(r.status_code, 500)
         data = json.loads(r.data)
         self.assertIn("error", data)
+
+
+    # ── free-text filter routes ───────────────────────────────────────────────
+
+    def test_add_query_form_has_free_text_filter_field(self):
+        self.db.add_subscriber("ftf@example.com", "FTF", "Test")
+        r = self.client.get("/subscribers")
+        self.assertIn(b"free_text_filter", r.data)
+
+    def test_add_query_saves_free_text_filter(self):
+        sub_id = self.db.add_subscriber("ftf2@example.com", "FTF2", "Test")
+        self.client.post(f"/subscribers/{sub_id}/queries/add", data={
+            "customer_name": "Alice",
+            "cities": ["amsterdam"],
+            "free_text_filter": "no corner houses",
+        })
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sub_id)
+        self.assertEqual(sub["queries"][0]["free_text_filter"], "no corner houses")
+
+    def test_update_query_filter_route(self):
+        sub_id = self.db.add_subscriber("ftf3@example.com", "FTF3", "Test")
+        q_id = self.db.add_customer_query(sub_id, "Bob", ["amsterdam"], None, None, None)
+        r = self.client.post(f"/queries/{q_id}/filter", data={"free_text_filter": "no ground floor"})
+        self.assertEqual(r.status_code, 302)
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sub_id)
+        self.assertEqual(sub["queries"][0]["free_text_filter"], "no ground floor")
+
+    def test_filter_pill_shown_in_ui_when_set(self):
+        sub_id = self.db.add_subscriber("ftf4@example.com", "FTF4", "Test")
+        self.db.add_customer_query(sub_id, "Carol", ["amsterdam"], None, None, None,
+                                   False, "no corner houses")
+        r = self.client.get("/subscribers")
+        self.assertIn(b"pill-filter", r.data)
+        self.assertIn(b"no corner houses", r.data)
+
+    def test_whatsapp_filter_webhook_updates_query(self):
+        sub_id = self.db.add_subscriber("ftf5@example.com", "FTF5", "Test")
+        self.db.set_subscriber_whatsapp_group(sub_id, "120363407400776027@g.us")
+        self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], None, None, None)
+        cfg = {"anthropic_api_key": ""}
+        with patch("json.load", return_value=cfg):
+            with patch("builtins.open", mock_open(read_data=json.dumps(cfg))):
+                r = self.client.post("/api/whatsapp-filter", json={
+                    "group_id":       "120363407400776027@g.us",
+                    "quoted_message": "[Pararius]  Test St 1  —  *Alice*",
+                    "filter_text":    "no corner houses",
+                })
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.data)
+        self.assertIn("acknowledgements", data)
+        self.assertEqual(data["acknowledgements"][0]["customer_name"], "Alice")
+        # Verify DB updated
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sub_id)
+        self.assertIn("corner", sub["queries"][0]["free_text_filter"])
+
+    def test_whatsapp_filter_webhook_missing_filter_text_returns_400(self):
+        r = self.client.post("/api/whatsapp-filter", json={
+            "group_id": "120363407400776027@g.us",
+            "quoted_message": "— *Alice*",
+            "filter_text": "",
+        })
+        self.assertEqual(r.status_code, 400)
+
+    def test_whatsapp_filter_webhook_no_customer_found_returns_400(self):
+        r = self.client.post("/api/whatsapp-filter", json={
+            "group_id": "120363407400776027@g.us",
+            "quoted_message": "A message with no customer name pattern",
+            "filter_text": "no corner houses",
+        })
+        self.assertEqual(r.status_code, 400)
 
 
 if __name__ == "__main__":

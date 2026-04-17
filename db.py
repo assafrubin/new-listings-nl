@@ -93,15 +93,16 @@ def init_db():
         c.execute("""
             CREATE TABLE IF NOT EXISTS customer_queries (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                subscriber_id INTEGER NOT NULL REFERENCES subscribers(id),
-                customer_name TEXT NOT NULL DEFAULT '',
-                cities        TEXT NOT NULL DEFAULT '[]',
-                min_price     REAL,
-                max_price     REAL,
-                min_rooms     INTEGER,
-                student       INTEGER NOT NULL DEFAULT 0,
-                created_at    TEXT NOT NULL,
-                active        INTEGER NOT NULL DEFAULT 1
+                subscriber_id    INTEGER NOT NULL REFERENCES subscribers(id),
+                customer_name    TEXT NOT NULL DEFAULT '',
+                cities           TEXT NOT NULL DEFAULT '[]',
+                min_price        REAL,
+                max_price        REAL,
+                min_rooms        INTEGER,
+                student          INTEGER NOT NULL DEFAULT 0,
+                free_text_filter TEXT NOT NULL DEFAULT '',
+                created_at       TEXT NOT NULL,
+                active           INTEGER NOT NULL DEFAULT 1
             )
         """)
         c.execute("CREATE INDEX IF NOT EXISTS idx_cq_sub ON customer_queries(subscriber_id)")
@@ -121,6 +122,8 @@ def init_db():
         cq_cols = {row[1] for row in c.execute("PRAGMA table_info(customer_queries)")}
         if "student" not in cq_cols:
             c.execute("ALTER TABLE customer_queries ADD COLUMN student INTEGER NOT NULL DEFAULT 0")
+        if "free_text_filter" not in cq_cols:
+            c.execute("ALTER TABLE customer_queries ADD COLUMN free_text_filter TEXT NOT NULL DEFAULT ''")
 
 
 # ── Read ───────────────────────────────────────────────────────────────────────
@@ -210,7 +213,8 @@ def set_subscriber_whatsapp_group(subscriber_id: int, group_id: str):
 
 
 def add_customer_query(subscriber_id: int, customer_name: str, cities: list,
-                       min_price, max_price, min_rooms, student: bool = False) -> int:
+                       min_price, max_price, min_rooms,
+                       student: bool = False, free_text_filter: str = "") -> int:
     import json as _json
     init_db()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -218,12 +222,24 @@ def add_customer_query(subscriber_id: int, customer_name: str, cities: list,
     with _conn() as c:
         cur = c.execute(
             """INSERT INTO customer_queries
-               (subscriber_id, customer_name, cities, min_price, max_price, min_rooms, student, created_at)
-               VALUES (?,?,?,?,?,?,?,?)""",
+               (subscriber_id, customer_name, cities, min_price, max_price, min_rooms,
+                student, free_text_filter, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (subscriber_id, customer_name.strip(), cities_json,
-             min_price or None, max_price or None, min_rooms or None, 1 if student else 0, now),
+             min_price or None, max_price or None, min_rooms or None,
+             1 if student else 0, free_text_filter.strip(), now),
         )
         return cur.lastrowid
+
+
+def update_query_filter(query_id: int, free_text_filter: str):
+    """Set or replace the free-text filter for a customer query."""
+    init_db()
+    with _conn() as c:
+        c.execute(
+            "UPDATE customer_queries SET free_text_filter=? WHERE id=?",
+            (free_text_filter.strip(), query_id),
+        )
 
 
 def get_subscribers_with_queries() -> list:

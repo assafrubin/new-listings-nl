@@ -779,6 +779,10 @@ SUBSCRIBERS_TEMPLATE = """
     }
     .pill-city    { background: #dbeafe; color: #1e40af; }
     .pill-student { background: #fef3c7; color: #92400e; }
+    .pill-filter  { background: #ede9fe; color: #5b21b6; cursor: default; }
+    .filter-text  { font-size:.82rem; color:#6b7280; padding:2px 0 4px 2px; font-style:italic; }
+    .filter-edit-btn { font-size:.78rem; color:#6366f1; background:none; border:none; cursor:pointer; padding:2px 0 6px; }
+    .filter-edit-btn:hover { text-decoration:underline; }
     .empty-queries { font-size: .83rem; color: #9ca3af; padding: 4px 0 10px; }
 
     /* WhatsApp group row */
@@ -962,12 +966,32 @@ SUBSCRIBERS_TEMPLATE = """
                     {% if q.student %}
                       <span class="pill pill-student">Student</span>
                     {% endif %}
+                    {% if q.free_text_filter %}
+                      <span class="pill pill-filter" title="{{ q.free_text_filter }}">Filter ✎</span>
+                    {% endif %}
                   </div>
                   <form method="POST" action="/queries/remove/{{ q.id }}"
                         onsubmit="return confirm('Remove query for {{ q.customer_name }}?')">
                     <button type="submit" class="remove-btn">✕</button>
                   </form>
                 </div>
+                {% if q.free_text_filter %}
+                  <div class="filter-text">{{ q.free_text_filter }}</div>
+                {% endif %}
+                <div class="filter-edit" id="filter-edit-{{ q.id }}" style="display:none">
+                  <form method="POST" action="/queries/{{ q.id }}/filter">
+                    <textarea name="free_text_filter" rows="2"
+                      style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;resize:vertical;box-sizing:border-box"
+                      placeholder="Describe what to exclude…">{{ q.free_text_filter }}</textarea>
+                    <div style="margin-top:6px;display:flex;gap:8px">
+                      <button type="submit" class="btn-sm">Save filter</button>
+                      <button type="button" class="cancel-btn" onclick="document.getElementById('filter-edit-{{ q.id }}').style.display='none'">Cancel</button>
+                    </div>
+                  </form>
+                </div>
+                <button class="filter-edit-btn" onclick="document.getElementById('filter-edit-{{ q.id }}').style.display=document.getElementById('filter-edit-{{ q.id }}').style.display==='none'?'block':'none'">
+                  {{ 'Edit filter' if q.free_text_filter else '+ Add filter' }}
+                </button>
               {% endfor %}
             {% endif %}
 
@@ -1009,6 +1033,11 @@ SUBSCRIBERS_TEMPLATE = """
                     <input type="checkbox" name="student" value="1">
                     Student? <span style="font-weight:400;color:#6b7280;font-size:.85rem">(show student-only listings)</span>
                   </label>
+                </div>
+                <div class="form-group" style="margin-top:10px">
+                  <label style="font-weight:600;display:block;margin-bottom:4px">Free-text filter <span style="font-weight:400;color:#6b7280;font-size:.85rem">(optional — describe what to exclude)</span></label>
+                  <textarea name="free_text_filter" rows="2" placeholder='e.g. "Exclude corner houses" or "No properties south of A9"'
+                    style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.9rem;resize:vertical;box-sizing:border-box"></textarea>
                 </div>
                 <div class="qform-actions">
                   <button type="submit" class="btn-sm">Save query</button>
@@ -1061,18 +1090,20 @@ def add_subscriber():
 
 @app.route("/subscribers/<int:sub_id>/queries/add", methods=["POST"])
 def add_query(sub_id):
-    customer_name = request.form.get("customer_name", "").strip()
-    cities        = request.form.getlist("cities") or _load_cities()
-    min_price     = request.form.get("min_price") or None
-    max_price     = request.form.get("max_price") or None
-    min_rooms     = request.form.get("min_rooms") or None
-    student       = request.form.get("student") == "1"
+    customer_name     = request.form.get("customer_name", "").strip()
+    cities            = request.form.getlist("cities") or _load_cities()
+    min_price         = request.form.get("min_price") or None
+    max_price         = request.form.get("max_price") or None
+    min_rooms         = request.form.get("min_rooms") or None
+    student           = request.form.get("student") == "1"
+    free_text_filter  = request.form.get("free_text_filter", "").strip()
     db.add_customer_query(
         sub_id, customer_name, cities,
         float(min_price) if min_price else None,
         float(max_price) if max_price else None,
         int(min_rooms)   if min_rooms else None,
         student,
+        free_text_filter,
     )
     return redirect(url_for("subscribers", flash=f"Query for '{customer_name}' added."))
 
@@ -1119,6 +1150,85 @@ def list_whatsapp_groups():
         return jsonify({"error": f"whatsapp-service returned {r.status_code}: {r.text[:200]}"}), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/queries/<int:query_id>/filter", methods=["POST"])
+def update_query_filter(query_id):
+    """Update the free-text filter for a customer query from the UI."""
+    free_text_filter = request.form.get("free_text_filter", "").strip()
+    db.update_query_filter(query_id, free_text_filter)
+    msg = "Filter updated." if free_text_filter else "Filter cleared."
+    return redirect(url_for("subscribers", flash=msg))
+
+
+@app.route("/api/whatsapp-filter", methods=["POST"])
+def whatsapp_filter_webhook():
+    """
+    Called by the WhatsApp microservice when a user replies to a listing
+    notification with 'add filter: <instruction>'.
+
+    Expected JSON body:
+      {
+        "group_id":       "120363407400776027@g.us",
+        "quoted_message": "<text of the bot message that was replied to>",
+        "filter_text":    "<everything the user said after 'add filter'>",
+      }
+
+    Returns:
+      {
+        "acknowledgements": [
+          {"customer_name": "...", "query_id": 1, "new_filter": "..."},
+          ...
+        ]
+      }
+    """
+    import json as _json, re as _re
+    data = request.get_json(force=True) or {}
+    group_id       = data.get("group_id", "").strip()
+    quoted_message = data.get("quoted_message", "")
+    filter_text    = data.get("filter_text", "").strip()
+
+    if not filter_text:
+        return jsonify({"error": "filter_text is required"}), 400
+
+    # Parse customer names from the bot message (format: "— *CustomerName*")
+    customer_names_found = _re.findall(r"—\s+\*(.+?)\*", quoted_message)
+    if not customer_names_found:
+        return jsonify({"error": "Could not identify any customer from the quoted message"}), 400
+
+    # Find matching queries across subscribers in this group
+    subscribers = db.get_subscribers_with_queries()
+    targets = []
+    for sub in subscribers:
+        if group_id and sub.get("whatsapp_group", "") != group_id:
+            continue
+        for q in sub.get("queries", []):
+            if q.get("customer_name", "").lower() in [n.lower() for n in customer_names_found]:
+                targets.append(q)
+
+    if not targets:
+        return jsonify({"error": "No matching customer queries found for this group"}), 404
+
+    # Load API key for LLM filter merging
+    try:
+        cfg = _json.load(open(CONFIG_FILE))
+    except Exception:
+        cfg = {}
+    api_key = cfg.get("anthropic_api_key", "").strip()
+
+    from scanner import merge_free_text_filter
+    acknowledgements = []
+    for q in targets:
+        existing = q.get("free_text_filter", "")
+        new_filter = merge_free_text_filter(existing, filter_text, api_key)
+        db.update_query_filter(q["id"], new_filter)
+        acknowledgements.append({
+            "customer_name": q["customer_name"],
+            "query_id":      q["id"],
+            "new_filter":    new_filter,
+        })
+
+    return jsonify({"acknowledgements": acknowledgements})
 
 
 if __name__ == "__main__":

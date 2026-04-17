@@ -360,10 +360,75 @@ def classify_student_listing(text: str, api_key: str) -> bool:
         return False
 
 
+def check_free_text_filter(description: str, free_text_filter: str, api_key: str) -> bool:
+    """
+    Use Claude to decide whether a listing VIOLATES the subscriber's free-text filter.
+    Returns True  → listing is acceptable (include it).
+    Returns False → listing violates the filter (exclude it).
+    When in doubt (no description, no key, API error) returns True (include).
+    """
+    if not free_text_filter.strip() or not api_key:
+        return True
+    if not description.strip():
+        return True   # can't evaluate without description → be permissive
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        prompt = (
+            "You are evaluating a rental listing against a subscriber's filter criteria.\n\n"
+            f"Filter criteria (exclude listings that match this):\n{free_text_filter}\n\n"
+            f"Listing description:\n{description}\n\n"
+            "Does this listing VIOLATE the filter criteria and should therefore be EXCLUDED?\n"
+            "Reply with exactly one word: YES to exclude, NO to include. "
+            "When in doubt or the description does not contain enough information, answer NO."
+        )
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=5,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        answer = response.content[0].text.strip().upper()
+        return not answer.startswith("YES")   # YES → exclude → return False
+    except Exception as e:
+        log.warning(f"Free-text filter API error: {e}")
+        return True   # on error, include the listing
+
+
+def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: str) -> str:
+    """
+    Given an existing filter and a new natural-language instruction from WhatsApp,
+    return a merged, clean filter description.
+    """
+    if not api_key:
+        combined = f"{existing_filter}\n{new_instruction}".strip()
+        return combined
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        existing_part = f"Current filter:\n{existing_filter}" if existing_filter.strip() else "Current filter: (none)"
+        prompt = (
+            "A user is refining their rental listing preferences.\n\n"
+            f"{existing_part}\n\n"
+            f"New instruction from the user:\n{new_instruction}\n\n"
+            "Write a single, clear filter description that incorporates the new instruction "
+            "with the existing one (if any). The filter should describe what types of listings "
+            "to EXCLUDE, written in plain English. Be concise (1-4 sentences). "
+            "Reply with only the filter text, no preamble."
+        )
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=200,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.content[0].text.strip()
+    except Exception as e:
+        log.warning(f"Filter merge API error: {e}")
+        return f"{existing_filter}\n{new_instruction}".strip()
+
+
 def enrich_with_student_flag(listings: List[dict], api_key: str):
     """
     For each listing (in-place), fetch its description and classify whether it
     is a student-only listing.  Sets listing['student'] = True | False.
+    Also stores listing['_description'] for reuse by the free-text filter check.
     """
     if not api_key:
         log.warning("No Anthropic API key — skipping student classification (defaulting to False).")
@@ -373,6 +438,7 @@ def enrich_with_student_flag(listings: List[dict], api_key: str):
 
     for l in listings:
         desc = fetch_listing_description(l.get("url", ""), l.get("source", ""))
+        l["_description"] = desc   # cache for free-text filter reuse
         is_student = classify_student_listing(desc, api_key)
         l["student"] = is_student
         if is_student:
@@ -560,7 +626,7 @@ def _query_section_html(query: dict, listings: List[dict]) -> str:
     """
 
 
-def notify_subscribers(new_listings: List[dict], notify_cfg: dict):
+def notify_subscribers(new_listings: List[dict], notify_cfg: dict, api_key: str = ""):
     subscribers = db.get_subscribers_with_queries()
     if not subscribers:
         log.info("No active subscribers — skipping notifications.")
@@ -574,6 +640,17 @@ def notify_subscribers(new_listings: List[dict], notify_cfg: dict):
         customer_names  = []
         for query in sub["queries"]:
             matching = [l for l in new_listings if matches_query(l, query)]
+            # Apply free-text filter via LLM if set
+            ftf = query.get("free_text_filter", "").strip()
+            if ftf and matching:
+                before = len(matching)
+                matching = [
+                    l for l in matching
+                    if check_free_text_filter(l.get("_description", ""), ftf, api_key)
+                ]
+                excluded = before - len(matching)
+                if excluded:
+                    log.info(f"  Free-text filter excluded {excluded} listing(s) for {query.get('customer_name')}")
             if matching:
                 sections.append(_query_section_html(query, matching))
                 wa_blocks.append(_format_whatsapp_message(query, matching))
@@ -633,7 +710,7 @@ def main():
         log.info(f"Classifying {len(new)} new listings for student-only content…")
         enrich_with_student_flag(new, anthropic_key)
         db.upsert_listings(new)
-        notify_subscribers(new, ntfy)
+        notify_subscribers(new, ntfy, anthropic_key)
     else:
         log.info("No new listings.")
 
