@@ -446,7 +446,7 @@ def send_whatsapp_group(group_id: str, message: str, cfg: dict):
             f"{service_url}/send",
             json={"chatId": group_id, "message": message},
             headers=headers,
-            timeout=15,
+            timeout=45,
         )
         if r.status_code == 200:
             log.info(f"WhatsApp group message sent to {group_id}.")
