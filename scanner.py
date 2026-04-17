@@ -424,31 +424,34 @@ def send_whatsapp(message: str, cfg: dict):
 
 def send_whatsapp_group(group_id: str, message: str, cfg: dict):
     """
-    Send a message to a WhatsApp group via Green-API.
+    Send a message to a WhatsApp group via the local Baileys microservice.
 
     Requires in config.json → notifications:
-      green_api_instance_id : your Green-API instance ID
-      green_api_token       : your Green-API token
+      whatsapp_service_url   : base URL of the running whatsapp-service
+                               (default "http://localhost:3001")
+      whatsapp_service_token : API_TOKEN set on the service, or "" for no auth
 
     group_id format: "120363043051405349@g.us"
-    Personal chats:  "31612345678@c.us"
 
-    Sign up and scan QR at https://green-api.com to link your personal number.
+    The microservice must be running before the scanner can send WhatsApp
+    messages. See whatsapp-service/README.md for setup instructions.
     """
-    instance_id = cfg.get("green_api_instance_id", "").strip()
-    token       = cfg.get("green_api_token", "").strip()
-    if not instance_id or not token:
-        log.warning("WhatsApp group skipped — green_api_instance_id / green_api_token not set in config.json")
-        return
     if not group_id:
         return
-    url = f"https://api.green-api.com/waInstance{instance_id}/sendMessage/{token}"
+    service_url = cfg.get("whatsapp_service_url", "http://localhost:3001").rstrip("/")
+    token       = cfg.get("whatsapp_service_token", "").strip()
+    headers     = {"Authorization": f"Bearer {token}"} if token else {}
     try:
-        r = requests.post(url, json={"chatId": group_id, "message": message}, timeout=15)
+        r = requests.post(
+            f"{service_url}/send",
+            json={"chatId": group_id, "message": message},
+            headers=headers,
+            timeout=15,
+        )
         if r.status_code == 200:
             log.info(f"WhatsApp group message sent to {group_id}.")
         else:
-            log.warning(f"Green-API {r.status_code}: {r.text[:200]}")
+            log.warning(f"WhatsApp service {r.status_code}: {r.text[:200]}")
     except Exception as e:
         log.error(f"WhatsApp group error: {e}")
 

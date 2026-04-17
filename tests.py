@@ -867,24 +867,27 @@ class TestEnrichWithStudentFlag(unittest.TestCase):
 # ══════════════════════════════════════════════════════════════════════════════
 
 class TestSendWhatsAppGroup(unittest.TestCase):
+    """send_whatsapp_group calls the local Baileys microservice (POST /send)."""
 
     def setUp(self):
         import scanner
         self.send = scanner.send_whatsapp_group
 
     def _cfg(self, **kw):
-        base = {"green_api_instance_id": "1234567890", "green_api_token": "abc123token"}
+        base = {
+            "whatsapp_service_url": "http://localhost:3001",
+            "whatsapp_service_token": "testtoken",
+        }
         base.update(kw)
         return base
 
     @patch("scanner.requests.post")
-    def test_sends_post_to_green_api(self, mock_post):
+    def test_posts_to_service_send_endpoint(self, mock_post):
         mock_post.return_value = MagicMock(status_code=200)
         self.send("120363043051405349@g.us", "Hello group!", self._cfg())
         mock_post.assert_called_once()
         url = mock_post.call_args.args[0]
-        self.assertIn("1234567890", url)
-        self.assertIn("abc123token", url)
+        self.assertEqual(url, "http://localhost:3001/send")
 
     @patch("scanner.requests.post")
     def test_sends_correct_chat_id_and_message(self, mock_post):
@@ -895,14 +898,18 @@ class TestSendWhatsAppGroup(unittest.TestCase):
         self.assertEqual(payload["message"], "Test message")
 
     @patch("scanner.requests.post")
-    def test_no_instance_id_skips(self, mock_post):
-        self.send("120363043051405349@g.us", "msg", self._cfg(green_api_instance_id=""))
-        mock_post.assert_not_called()
+    def test_bearer_token_sent_in_header(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self.send("120363043051405349@g.us", "msg", self._cfg())
+        headers = mock_post.call_args.kwargs["headers"]
+        self.assertEqual(headers["Authorization"], "Bearer testtoken")
 
     @patch("scanner.requests.post")
-    def test_no_token_skips(self, mock_post):
-        self.send("120363043051405349@g.us", "msg", self._cfg(green_api_token=""))
-        mock_post.assert_not_called()
+    def test_no_auth_header_when_token_empty(self, mock_post):
+        mock_post.return_value = MagicMock(status_code=200)
+        self.send("120363043051405349@g.us", "msg", self._cfg(whatsapp_service_token=""))
+        headers = mock_post.call_args.kwargs.get("headers", {})
+        self.assertNotIn("Authorization", headers)
 
     @patch("scanner.requests.post")
     def test_empty_group_id_skips(self, mock_post):
@@ -911,7 +918,7 @@ class TestSendWhatsAppGroup(unittest.TestCase):
 
     @patch("scanner.requests.post")
     def test_non_200_response_logs_warning(self, mock_post):
-        mock_post.return_value = MagicMock(status_code=400, text="Bad Request")
+        mock_post.return_value = MagicMock(status_code=503, text="Not connected")
         # Should not raise, just log
         self.send("120363043051405349@g.us", "msg", self._cfg())
 
@@ -1431,12 +1438,35 @@ class TestFlaskRoutes(unittest.TestCase):
         self.assertIn(b"whatsapp-group", r.data)
         self.assertIn(b"group_id", r.data)
 
-    def test_list_whatsapp_groups_no_credentials_returns_400(self):
-        empty_cfg = {"notifications": {"green_api_instance_id": "", "green_api_token": ""}}
-        with patch("builtins.open", mock_open(read_data=json.dumps(empty_cfg))):
-            with patch("json.load", return_value=empty_cfg):
-                r = self.client.get("/whatsapp-groups")
-        self.assertEqual(r.status_code, 400)
+    def test_list_whatsapp_groups_proxies_service(self):
+        """Route proxies to whatsapp-service GET /groups and returns its JSON."""
+        service_cfg = {"notifications": {
+            "whatsapp_service_url": "http://localhost:3001",
+            "whatsapp_service_token": "",
+        }}
+        fake_response = MagicMock(status_code=200)
+        fake_response.json.return_value = {"groups": [
+            {"id": "120363043051405349@g.us", "name": "Test Group", "participants": 2}
+        ]}
+        with patch("json.load", return_value=service_cfg):
+            with patch("builtins.open", mock_open(read_data=json.dumps(service_cfg))):
+                with patch("requests.get", return_value=fake_response):
+                    r = self.client.get("/whatsapp-groups")
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.data)
+        self.assertIn("groups", data)
+        self.assertEqual(data["groups"][0]["id"], "120363043051405349@g.us")
+
+    def test_list_whatsapp_groups_service_unreachable_returns_500(self):
+        service_cfg = {"notifications": {
+            "whatsapp_service_url": "http://localhost:3001",
+            "whatsapp_service_token": "",
+        }}
+        with patch("json.load", return_value=service_cfg):
+            with patch("builtins.open", mock_open(read_data=json.dumps(service_cfg))):
+                with patch("requests.get", side_effect=Exception("Connection refused")):
+                    r = self.client.get("/whatsapp-groups")
+        self.assertEqual(r.status_code, 500)
         data = json.loads(r.data)
         self.assertIn("error", data)
 

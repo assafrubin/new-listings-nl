@@ -6,11 +6,9 @@
     ]
   },
   "notifications": {
-    "whatsapp_number": "+310624463594",
-    "whatsapp_apikey": "",
     "email_from": "assafrubin@gmail.com",
     "email_password": "akfm fwpj uppv ywkq",
-    "green_api_instance_id": "",
-    "green_api_token": ""
+    "whatsapp_service_url": "http://localhost:3001",
+    "whatsapp_service_token": ""
   }
 }

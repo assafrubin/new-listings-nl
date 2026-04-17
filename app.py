@@ -1096,9 +1096,9 @@ def set_whatsapp_group(sub_id):
 @app.route("/whatsapp-groups")
 def list_whatsapp_groups():
     """
-    Helper endpoint: fetches all WhatsApp chats from Green-API and returns
-    them as JSON so you can identify your group IDs.
-    GET /whatsapp-groups
+    Proxy to whatsapp-service GET /groups.
+    Returns the groups the linked WhatsApp account belongs to so you can
+    copy the chatId values into subscriber settings.
     """
     import json as _json
     try:
@@ -1106,21 +1106,17 @@ def list_whatsapp_groups():
     except Exception:
         cfg = {}
     ntfy        = cfg.get("notifications", {})
-    instance_id = ntfy.get("green_api_instance_id", "").strip()
-    token       = ntfy.get("green_api_token", "").strip()
-    if not instance_id or not token:
-        return jsonify({"error": "green_api_instance_id / green_api_token not set in config.json"}), 400
+    service_url = ntfy.get("whatsapp_service_url", "http://localhost:3001").rstrip("/")
+    token       = ntfy.get("whatsapp_service_token", "").strip()
+    if not service_url:
+        return jsonify({"error": "whatsapp_service_url not set in config.json"}), 400
     import requests as _req
     try:
-        url = f"https://api.green-api.com/waInstance{instance_id}/getChats/{token}"
-        r   = _req.get(url, timeout=15)
-        chats = r.json() if r.status_code == 200 else []
-        groups = [
-            {"id": c.get("id", ""), "name": c.get("name", "")}
-            for c in chats
-            if str(c.get("id", "")).endswith("@g.us")
-        ]
-        return jsonify({"groups": groups})
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        r = _req.get(f"{service_url}/groups", headers=headers, timeout=10)
+        if r.status_code == 200:
+            return jsonify(r.json())
+        return jsonify({"error": f"whatsapp-service returned {r.status_code}: {r.text[:200]}"}), r.status_code
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
