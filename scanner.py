@@ -479,10 +479,11 @@ def _format_whatsapp_message(query: dict, listings: List[dict]) -> str:
         filter_str,
         "",
     ]
+    customer_name = query.get("customer_name", "")
     for l in listings:
         price   = l.get("price", "").replace(" per maand", "/mo")
         details = "  ·  ".join(p for p in [l.get("size", ""), l.get("rooms", "") + " rooms" if l.get("rooms") else ""] if p)
-        lines.append(f"[{l['source']}]  {l['title']}")
+        lines.append(f"[{l['source']}]  {l['title']}  —  *{customer_name}*")
         if price:
             lines.append(price + (f"  ·  {details}" if details else ""))
         lines.append(l["url"])

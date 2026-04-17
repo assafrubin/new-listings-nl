@@ -471,7 +471,16 @@ HISTORY_TEMPLATE = """
                 <span class="source-badge source-{{ l.source | lower }}">{{ l.source }}</span>
                 <div class="listing-info">
                   <div class="listing-title">
-                    <a href="{{ l.url }}" target="_blank">{{ l.title }}</a>
+                    <a href="{{ l.url }}" target="_blank">
+                      {% if l.title and not l.title.startswith('http') %}
+                        {{ l.title }}
+                      {% else %}
+                        {# Funda fallback: extract readable address from URL slug #}
+                        {% set parts = l.url.rstrip('/').split('/') %}
+                        {% set slug = parts[-2] if parts[-1].isdigit() else parts[-1] %}
+                        {{ slug | replace('-', ' ') | title }}
+                      {% endif %}
+                    </a>
                   </div>
                   <div class="listing-price">{{ l.price }}</div>
                   {% set parts = [] %}
@@ -775,7 +784,7 @@ SUBSCRIBERS_TEMPLATE = """
     /* WhatsApp group row */
     .wa-row {
       display: flex; align-items: center; gap: 10px;
-      padding: 10px 0; border-top: 1px solid #f3f4f6; margin-top: 4px;
+      padding: 10px 20px; border-top: 1px solid #f3f4f6; margin-top: 4px;
       font-size: .85rem;
     }
     .wa-label { font-weight: 600; color: #374151; white-space: nowrap; }

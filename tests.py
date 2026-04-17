@@ -21,7 +21,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, mock_open
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, PROJECT_ROOT)
@@ -1432,7 +1432,10 @@ class TestFlaskRoutes(unittest.TestCase):
         self.assertIn(b"group_id", r.data)
 
     def test_list_whatsapp_groups_no_credentials_returns_400(self):
-        r = self.client.get("/whatsapp-groups")
+        empty_cfg = {"notifications": {"green_api_instance_id": "", "green_api_token": ""}}
+        with patch("builtins.open", mock_open(read_data=json.dumps(empty_cfg))):
+            with patch("json.load", return_value=empty_cfg):
+                r = self.client.get("/whatsapp-groups")
         self.assertEqual(r.status_code, 400)
         data = json.loads(r.data)
         self.assertIn("error", data)
