@@ -1,18 +1,17 @@
 {
   "name": "whatsapp-service",
-  "version": "1.0.0",
-  "description": "WhatsApp HTTP microservice — wraps Baileys so the Python scanner can send group messages without a third-party intermediary.",
+  "version": "2.0.0",
+  "description": "WhatsApp HTTP microservice — drives a real Chrome+WhatsApp Web session via whatsapp-web.js. No third-party intermediary; supports sending group messages and an extensible command system for receiving/handling WhatsApp commands.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "^6.7.9",
-    "@hapi/boom": "^10.0.1",
     "express": "^4.19.2",
-    "pino": "^8.21.0",
+    "puppeteer": "^21.11.0",
     "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.26.0"
   },
   "engines": {
     "node": ">=18"
