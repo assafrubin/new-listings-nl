@@ -48,14 +48,33 @@ require("./commands");
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const API_TOKEN = (process.env.API_TOKEN || "").trim();
 const SCANNER_URL = (process.env.SCANNER_URL || "http://127.0.0.1:5001").replace(/\/$/, "");
-// Optional: set OPENAI_API_KEY to enable voice-message transcription via Whisper
-const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
+
+// OpenAI key — env var takes priority, falls back to config.json
+function loadOpenAiKey() {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY.trim();
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, "../config.json"), "utf8"));
+    return (cfg.openai_api_key || "").trim();
+  } catch (_) { return ""; }
+}
+const OPENAI_API_KEY = loadOpenAiKey();
 
 // ── Voice transcription (OpenAI Whisper) ─────────────────────────────────────
 
+// Whisper prompt biases transcription toward Amsterdam rental vocabulary so
+// Dutch proper nouns (parks, neighbourhoods, streets) survive Hebrew speech.
+const WHISPER_PROMPT =
+  "Amsterdam rental filter. Neighbourhoods and landmarks: Vondelpark, Jordaan, " +
+  "De Pijp, Oud-Zuid, Oud-West, Centrum, Oost, West, Noord, Zuid, Amstelveen, " +
+  "Museumplein, Leidseplein, Rembrandtplein, Waterlooplein, Frederiksplein, " +
+  "Sarphatipark, Beatrixpark, Westerpark, Oosterpark, Amstelpark, " +
+  "Haarlemmerdijk, Utrechtsestraat, Ceintuurbaan, Overtoom, Kinkerstraat. " +
+  "Directions: north, south, east, west, noordkant, zuidkant.";
+
 /**
- * Transcribe a WhatsApp voice message (ptt / audio) to text.
- * Returns the transcript string, or null if transcription is not available.
+ * Transcribe a WhatsApp voice message (ptt / audio) to text, then run a GPT
+ * cleanup pass to fix proper nouns and semantic errors (e.g. north↔south).
+ * Returns the corrected transcript string, or null if transcription failed.
  */
 async function transcribeVoice(msg) {
   if (!OPENAI_API_KEY) return null;
@@ -63,17 +82,18 @@ async function transcribeVoice(msg) {
   const media = await msg.downloadMedia();
   if (!media || !media.data) return null;
 
-  // Write audio to a temp file so we can pass it to the Whisper API as a stream
   const ext = media.mimetype.includes("ogg") ? "ogg" : "mp4";
   const tmpFile = path.join(os.tmpdir(), `wa_audio_${Date.now()}.${ext}`);
   fs.writeFileSync(tmpFile, Buffer.from(media.data, "base64"));
 
+  let raw = null;
   try {
     const FormData = require("form-data");
     const form = new FormData();
     form.append("file", fs.createReadStream(tmpFile), { filename: `audio.${ext}` });
     form.append("model", "whisper-1");
-    // No language hint → auto-detect (handles Hebrew and English natively)
+    form.append("language", "he");
+    form.append("prompt", WHISPER_PROMPT);
 
     const resp = await new Promise((resolve, reject) => {
       const req = https.request(
@@ -96,9 +116,70 @@ async function transcribeVoice(msg) {
       form.pipe(req);
     });
 
-    return resp.text || null;
+    raw = resp.text || null;
   } finally {
     try { fs.unlinkSync(tmpFile); } catch (_) {}
+  }
+
+  if (!raw) return null;
+  console.log(`[WA] Whisper raw: "${raw}"`);
+
+  // GPT cleanup: fix proper nouns and semantic errors in the Amsterdam rental context
+  const cleaned = await correctTranscript(raw);
+  console.log(`[WA] GPT corrected: "${cleaned}"`);
+  return cleaned;
+}
+
+/**
+ * Ask GPT to correct a Whisper transcript in the context of Amsterdam rental
+ * search filters — fixes misspelled place names, flipped directions, etc.
+ */
+async function correctTranscript(transcript) {
+  try {
+    const payload = JSON.stringify({
+      model: "gpt-4o-mini",
+      max_tokens: 200,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You correct speech-to-text transcripts for an Amsterdam rental search app. " +
+            "The user speaks Hebrew but may mention Dutch place names, street names, or neighbourhoods. " +
+            "Fix any misheard proper nouns (e.g. 'Bundell Park' → 'Vondelpark'), " +
+            "correct obvious directional errors, and return only the corrected text in English. " +
+            "Do not add explanation. If the transcript is already correct, return it as-is translated to English.",
+        },
+        { role: "user", content: transcript },
+      ],
+    });
+
+    const result = await new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "api.openai.com",
+          path: "/v1/chat/completions",
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+            "Content-Length": Buffer.byteLength(payload),
+          },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (c) => (data += c));
+          res.on("end", () => resolve(JSON.parse(data)));
+        }
+      );
+      req.on("error", reject);
+      req.write(payload);
+      req.end();
+    });
+
+    return result.choices?.[0]?.message?.content?.trim() || transcript;
+  } catch (err) {
+    console.error("[WA] Transcript correction error:", err.message);
+    return transcript;
   }
 }
 
@@ -116,6 +197,7 @@ wa.setReplyHandler(async (msg, client, quoted) => {
   let filterText = "";
 
   if (isVoice) {
+    console.log(`[WA] Voice reply detected. OPENAI_API_KEY set: ${!!OPENAI_API_KEY}`);
     if (!OPENAI_API_KEY) {
       await msg.reply(
         "I received your voice message but voice transcription is not configured.\n" +
@@ -125,11 +207,11 @@ wa.setReplyHandler(async (msg, client, quoted) => {
     }
     try {
       filterText = await transcribeVoice(msg);
+      console.log(`[WA] Transcription result: "${filterText}"`);
       if (!filterText) {
         await msg.reply("I couldn't transcribe your voice message. Please try again or type your feedback.");
         return;
       }
-      console.log(`[WA] Voice transcribed: "${filterText}"`);
     } catch (err) {
       console.error("[WA] Transcription error:", err.message);
       await msg.reply("Transcription failed. Please type your feedback instead.");

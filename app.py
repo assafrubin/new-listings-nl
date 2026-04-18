@@ -1316,7 +1316,7 @@ def whatsapp_filter_webhook():
         cfg = _json.load(open(CONFIG_FILE))
     except Exception:
         cfg = {}
-    api_key = cfg.get("anthropic_api_key", "").strip()
+    api_key = cfg.get("openai_api_key", "").strip()
 
     from scanner import merge_free_text_filter
     acknowledgements = []

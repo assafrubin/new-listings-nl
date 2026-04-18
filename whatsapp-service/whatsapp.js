@@ -121,6 +121,7 @@ async function init() {
     if (_replyHandler && msg.hasQuotedMsg) {
       try {
         const quoted = await msg.getQuotedMessage();
+        console.log(`[WA] Quoted message: fromMe=${quoted.fromMe} type=${quoted.type} body="${(quoted.body||"").slice(0,60)}"`);
         if (quoted.fromMe) {
           await _replyHandler(msg, client, quoted);
           return;

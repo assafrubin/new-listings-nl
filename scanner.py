@@ -32,7 +32,7 @@ import undetected_chromedriver as uc
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
-import anthropic
+from openai import OpenAI
 import db
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
@@ -332,13 +332,13 @@ def fetch_listing_description(url: str, source: str) -> str:
 
 def classify_student_listing(text: str, api_key: str) -> bool:
     """
-    Use Claude to determine whether this listing is exclusively for students.
+    Use OpenAI to determine whether this listing is exclusively for students.
     Returns True only if the listing explicitly restricts applicants to students.
     """
     if not text.strip() or not api_key:
         return False
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = OpenAI(api_key=api_key)
         prompt = (
             "You are analyzing a Dutch rental listing description.\n"
             "Determine whether this listing is EXCLUSIVELY meant for students "
@@ -348,12 +348,12 @@ def classify_student_listing(text: str, api_key: str) -> bool:
             "Reply with exactly one word: YES if it is student-only, NO otherwise. "
             "When in doubt, answer NO."
         )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             max_tokens=5,
             messages=[{"role": "user", "content": prompt}],
         )
-        answer = response.content[0].text.strip().upper()
+        answer = response.choices[0].message.content.strip().upper()
         return answer.startswith("YES")
     except Exception as e:
         log.warning(f"Student classification API error: {e}")
@@ -362,7 +362,7 @@ def classify_student_listing(text: str, api_key: str) -> bool:
 
 def check_free_text_filter(description: str, free_text_filter: str, api_key: str) -> bool:
     """
-    Use Claude to decide whether a listing VIOLATES the subscriber's free-text filter.
+    Use OpenAI to decide whether a listing VIOLATES the subscriber's free-text filter.
     Returns True  → listing is acceptable (include it).
     Returns False → listing violates the filter (exclude it).
     When in doubt (no description, no key, API error) returns True (include).
@@ -372,7 +372,7 @@ def check_free_text_filter(description: str, free_text_filter: str, api_key: str
     if not description.strip():
         return True   # can't evaluate without description → be permissive
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = OpenAI(api_key=api_key)
         prompt = (
             "You are evaluating a Dutch rental listing against a subscriber's filter criteria.\n"
             "The listing description may be in Dutch, the filter criteria in English.\n\n"
@@ -382,12 +382,12 @@ def check_free_text_filter(description: str, free_text_filter: str, api_key: str
             "Reply with exactly one word: YES to exclude, NO to include. "
             "When in doubt or the description does not contain enough information, answer NO."
         )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             max_tokens=5,
             messages=[{"role": "user", "content": prompt}],
         )
-        answer = response.content[0].text.strip().upper()
+        answer = response.choices[0].message.content.strip().upper()
         return not answer.startswith("YES")   # YES → exclude → return False
     except Exception as e:
         log.warning(f"Free-text filter API error: {e}")
@@ -403,7 +403,7 @@ def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: 
         combined = f"{existing_filter}\n{new_instruction}".strip()
         return combined
     try:
-        client = anthropic.Anthropic(api_key=api_key)
+        client = OpenAI(api_key=api_key)
         existing_part = f"Current filter:\n{existing_filter}" if existing_filter.strip() else "Current filter: (none)"
         prompt = (
             "A user is refining their rental listing preferences.\n"
@@ -415,12 +415,12 @@ def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: 
             "to EXCLUDE. Be concise (1-4 sentences). "
             "Reply with only the filter text, no preamble."
         )
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             max_tokens=200,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.content[0].text.strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
         log.warning(f"Filter merge API error: {e}")
         return f"{existing_filter}\n{new_instruction}".strip()
@@ -433,7 +433,7 @@ def enrich_with_student_flag(listings: List[dict], api_key: str):
     Also stores listing['_description'] for reuse by the free-text filter check.
     """
     if not api_key:
-        log.warning("No Anthropic API key — skipping student classification (defaulting to False).")
+        log.warning("No OpenAI API key — skipping student classification (defaulting to False).")
         for l in listings:
             l["student"] = False
         return
@@ -690,7 +690,7 @@ def notify_subscribers(new_listings: List[dict], notify_cfg: dict, api_key: str 
 def main():
     cfg  = load_config()
     ntfy = cfg.get("notifications", {})
-    anthropic_key = cfg.get("anthropic_api_key", "").strip()
+    anthropic_key = cfg.get("openai_api_key", "").strip()
 
     log.info("=== Scan started ===")
     seen   = db.get_seen_ids()

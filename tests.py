@@ -669,29 +669,29 @@ class TestClassifyStudentListing(unittest.TestCase):
         import scanner
         self.classify = scanner.classify_student_listing
 
-    def _mock_anthropic(self, answer: str):
+    def _mock_openai(self, answer: str):
         client = MagicMock()
-        client.messages.create.return_value.content = [MagicMock(text=answer)]
+        client.chat.completions.create.return_value.choices[0].message.content = answer
         return client
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_yes_returns_true(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_anthropic("YES")
+    @patch("scanner.OpenAI")
+    def test_yes_returns_true(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_openai("YES")
         self.assertTrue(self.classify("Alleen voor studenten", "key"))
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_no_returns_false(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_anthropic("NO")
+    @patch("scanner.OpenAI")
+    def test_no_returns_false(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_openai("NO")
         self.assertFalse(self.classify("Ruime woning in Amsterdam", "key"))
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_yes_lowercase_accepted(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_anthropic("yes")
+    @patch("scanner.OpenAI")
+    def test_yes_lowercase_accepted(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_openai("yes")
         self.assertTrue(self.classify("student only housing", "key"))
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_yes_with_trailing_text(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_anthropic("YES.")
+    @patch("scanner.OpenAI")
+    def test_yes_with_trailing_text(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_openai("YES.")
         self.assertTrue(self.classify("studentenwoning vereist inschrijfbewijs", "key"))
 
     def test_empty_text_returns_false_without_api_call(self):
@@ -703,34 +703,34 @@ class TestClassifyStudentListing(unittest.TestCase):
     def test_no_api_key_returns_false(self):
         self.assertFalse(self.classify("alleen voor studenten", ""))
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_api_error_returns_false(self, MockAnthropic):
-        MockAnthropic.return_value.messages.create.side_effect = Exception("timeout")
+    @patch("scanner.OpenAI")
+    def test_api_error_returns_false(self, MockOpenAI):
+        MockOpenAI.return_value.chat.completions.create.side_effect = Exception("timeout")
         self.assertFalse(self.classify("some text", "key"))
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_uses_haiku_model(self, MockAnthropic):
-        mock_client = self._mock_anthropic("NO")
-        MockAnthropic.return_value = mock_client
+    @patch("scanner.OpenAI")
+    def test_uses_gpt4o_mini_model(self, MockOpenAI):
+        mock_client = self._mock_openai("NO")
+        MockOpenAI.return_value = mock_client
         self.classify("some text", "key")
-        kwargs = mock_client.messages.create.call_args.kwargs
-        self.assertEqual(kwargs["model"], "claude-haiku-4-5-20251001")
+        kwargs = mock_client.chat.completions.create.call_args.kwargs
+        self.assertEqual(kwargs["model"], "gpt-4o-mini")
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_text_appears_in_prompt(self, MockAnthropic):
-        mock_client = self._mock_anthropic("NO")
-        MockAnthropic.return_value = mock_client
+    @patch("scanner.OpenAI")
+    def test_text_appears_in_prompt(self, MockOpenAI):
+        mock_client = self._mock_openai("NO")
+        MockOpenAI.return_value = mock_client
         self.classify("studentenwoning centrum", "key")
-        prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        prompt = mock_client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
         self.assertIn("studentenwoning centrum", prompt)
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_long_text_truncated_in_prompt(self, MockAnthropic):
-        mock_client = self._mock_anthropic("NO")
-        MockAnthropic.return_value = mock_client
+    @patch("scanner.OpenAI")
+    def test_long_text_truncated_in_prompt(self, MockOpenAI):
+        mock_client = self._mock_openai("NO")
+        MockOpenAI.return_value = mock_client
         long_text = "x" * 5000
         self.classify(long_text, "key")
-        prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+        prompt = mock_client.chat.completions.create.call_args.kwargs["messages"][0]["content"]
         # Prompt must be bounded even for very long input
         self.assertLess(len(prompt), 6000)
 
@@ -873,21 +873,19 @@ class TestCheckFreeTextFilter(unittest.TestCase):
         self.check = scanner.check_free_text_filter
 
     def _mock_client(self, answer):
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text=answer)]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_response
+        mock_client.chat.completions.create.return_value.choices[0].message.content = answer
         return mock_client
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_returns_false_when_listing_violates_filter(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_client("YES")
+    @patch("scanner.OpenAI")
+    def test_returns_false_when_listing_violates_filter(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_client("YES")
         result = self.check("Corner house listing", "No corner houses", "key")
         self.assertFalse(result)
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_returns_true_when_listing_acceptable(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_client("NO")
+    @patch("scanner.OpenAI")
+    def test_returns_true_when_listing_acceptable(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_client("NO")
         result = self.check("City centre apartment", "No corner houses", "key")
         self.assertTrue(result)
 
@@ -903,9 +901,9 @@ class TestCheckFreeTextFilter(unittest.TestCase):
         result = self.check("", "no corner houses", "key")
         self.assertTrue(result)
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_api_error_includes_listing(self, MockAnthropic):
-        MockAnthropic.return_value.messages.create.side_effect = Exception("API error")
+    @patch("scanner.OpenAI")
+    def test_api_error_includes_listing(self, MockOpenAI):
+        MockOpenAI.return_value.chat.completions.create.side_effect = Exception("API error")
         result = self.check("some description", "no corner houses", "key")
         self.assertTrue(result)
 
@@ -917,21 +915,19 @@ class TestMergeFreeTextFilter(unittest.TestCase):
         self.merge = scanner.merge_free_text_filter
 
     def _mock_client(self, answer):
-        mock_response = MagicMock()
-        mock_response.content = [MagicMock(text=answer)]
         mock_client = MagicMock()
-        mock_client.messages.create.return_value = mock_response
+        mock_client.chat.completions.create.return_value.choices[0].message.content = answer
         return mock_client
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_merges_with_existing_filter(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_client("No corner houses. No ground floor.")
+    @patch("scanner.OpenAI")
+    def test_merges_with_existing_filter(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_client("No corner houses. No ground floor.")
         result = self.merge("No corner houses", "also no ground floor", "key")
         self.assertEqual(result, "No corner houses. No ground floor.")
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_sets_filter_when_no_existing(self, MockAnthropic):
-        MockAnthropic.return_value = self._mock_client("No corner houses.")
+    @patch("scanner.OpenAI")
+    def test_sets_filter_when_no_existing(self, MockOpenAI):
+        MockOpenAI.return_value = self._mock_client("No corner houses.")
         result = self.merge("", "no corner houses", "key")
         self.assertEqual(result, "No corner houses.")
 
@@ -940,9 +936,9 @@ class TestMergeFreeTextFilter(unittest.TestCase):
         self.assertIn("No corner houses", result)
         self.assertIn("also no ground floor", result)
 
-    @patch("scanner.anthropic.Anthropic")
-    def test_api_error_concatenates(self, MockAnthropic):
-        MockAnthropic.return_value.messages.create.side_effect = Exception("fail")
+    @patch("scanner.OpenAI")
+    def test_api_error_concatenates(self, MockOpenAI):
+        MockOpenAI.return_value.chat.completions.create.side_effect = Exception("fail")
         result = self.merge("existing", "new instruction", "key")
         self.assertIn("existing", result)
         self.assertIn("new instruction", result)
@@ -1729,7 +1725,7 @@ class TestFlaskRoutes(unittest.TestCase):
         sub_id = self.db.add_subscriber("ftf5@example.com", "FTF5", "Test")
         self.db.set_subscriber_whatsapp_group(sub_id, "120363407400776027@g.us")
         self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], None, None, None)
-        cfg = {"anthropic_api_key": ""}
+        cfg = {"openai_api_key": ""}
         with patch("json.load", return_value=cfg):
             with patch("builtins.open", mock_open(read_data=json.dumps(cfg))):
                 r = self.client.post("/api/whatsapp-filter", json={
