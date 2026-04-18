@@ -1758,6 +1758,54 @@ class TestFlaskRoutes(unittest.TestCase):
         })
         self.assertEqual(r.status_code, 400)
 
+    def test_whatsapp_filter_webhook_reads_openai_key_not_anthropic(self):
+        """Regression: webhook must use openai_api_key, not the old anthropic_api_key."""
+        sub_id = self.db.add_subscriber("key@example.com", "Key", "Test")
+        self.db.set_subscriber_whatsapp_group(sub_id, "120363407400776027@g.us")
+        self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], None, None, None)
+
+        captured = {}
+        real_merge = __import__("scanner").merge_free_text_filter
+
+        def capture_merge(existing, instruction, api_key):
+            captured["api_key"] = api_key
+            return real_merge(existing, instruction, api_key)
+
+        cfg = {"openai_api_key": "sk-test-openai", "anthropic_api_key": "sk-old-anthropic"}
+        with patch("json.load", return_value=cfg), \
+             patch("builtins.open", mock_open(read_data=json.dumps(cfg))), \
+             patch("scanner.merge_free_text_filter", side_effect=capture_merge):
+            self.client.post("/api/whatsapp-filter", json={
+                "group_id":       "120363407400776027@g.us",
+                "quoted_message": "[Pararius]  Test St 1  —  *Alice*",
+                "filter_text":    "no corner houses",
+            })
+
+        self.assertEqual(captured.get("api_key"), "sk-test-openai")
+
+    def test_whatsapp_filter_webhook_calls_llm_when_key_present(self):
+        """When openai_api_key is set, merge_free_text_filter must be called (not silent fallback)."""
+        sub_id = self.db.add_subscriber("llm@example.com", "LLM", "Test")
+        self.db.set_subscriber_whatsapp_group(sub_id, "120363407400776027@g.us")
+        self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], None, None, None)
+
+        mock_merge = MagicMock(return_value="LLM merged filter")
+        cfg = {"openai_api_key": "sk-test-key"}
+        with patch("json.load", return_value=cfg), \
+             patch("builtins.open", mock_open(read_data=json.dumps(cfg))), \
+             patch("scanner.merge_free_text_filter", mock_merge):
+            r = self.client.post("/api/whatsapp-filter", json={
+                "group_id":       "120363407400776027@g.us",
+                "quoted_message": "[Pararius]  Test St 1  —  *Alice*",
+                "filter_text":    "no corner houses",
+            })
+
+        mock_merge.assert_called_once()
+        call_kwargs = mock_merge.call_args
+        self.assertEqual(call_kwargs[0][2], "sk-test-key")  # api_key arg
+        data = json.loads(r.data)
+        self.assertEqual(data["acknowledgements"][0]["new_filter"], "LLM merged filter")
+
     def test_edit_query_route_updates_all_fields(self):
         sub_id = self.db.add_subscriber("eq1@example.com", "EQ1", "Test")
         q_id = self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], 1000, 2000, 2)
