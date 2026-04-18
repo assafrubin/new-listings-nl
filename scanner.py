@@ -374,7 +374,8 @@ def check_free_text_filter(description: str, free_text_filter: str, api_key: str
     try:
         client = anthropic.Anthropic(api_key=api_key)
         prompt = (
-            "You are evaluating a rental listing against a subscriber's filter criteria.\n\n"
+            "You are evaluating a Dutch rental listing against a subscriber's filter criteria.\n"
+            "The listing description may be in Dutch, the filter criteria in English.\n\n"
             f"Filter criteria (exclude listings that match this):\n{free_text_filter}\n\n"
             f"Listing description:\n{description}\n\n"
             "Does this listing VIOLATE the filter criteria and should therefore be EXCLUDED?\n"
@@ -405,12 +406,13 @@ def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: 
         client = anthropic.Anthropic(api_key=api_key)
         existing_part = f"Current filter:\n{existing_filter}" if existing_filter.strip() else "Current filter: (none)"
         prompt = (
-            "A user is refining their rental listing preferences.\n\n"
+            "A user is refining their rental listing preferences.\n"
+            "The user's instruction may be in English or Hebrew — interpret it correctly regardless of language.\n\n"
             f"{existing_part}\n\n"
             f"New instruction from the user:\n{new_instruction}\n\n"
-            "Write a single, clear filter description that incorporates the new instruction "
+            "Write a single, clear filter description in English that incorporates the new instruction "
             "with the existing one (if any). The filter should describe what types of listings "
-            "to EXCLUDE, written in plain English. Be concise (1-4 sentences). "
+            "to EXCLUDE. Be concise (1-4 sentences). "
             "Reply with only the filter text, no preamble."
         )
         response = client.messages.create(

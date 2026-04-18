@@ -26,6 +26,8 @@ const path = require("path");
 let client = null;
 let _isReady = false;
 let _latestQR = null;
+/** Optional async (msg, client, quotedMsg) => void — set via setReplyHandler() */
+let _replyHandler = null;
 
 // ── Puppeteer / Chrome config ─────────────────────────────────────────────────
 
@@ -100,10 +102,20 @@ async function init() {
     setTimeout(() => init(), 5000);
   });
 
-  // Route every incoming message through the command dispatcher.
-  // To handle a new command, call commands.register() in index.js (or any
-  // module loaded before init() is called).
   client.on("message", async (msg) => {
+    // Replies to bot messages are handled by the listing-reply handler (if set)
+    // before reaching the command dispatcher — this is how filter updates work.
+    if (_replyHandler && msg.hasQuotedMsg) {
+      try {
+        const quoted = await msg.getQuotedMessage();
+        if (quoted.fromMe) {
+          await _replyHandler(msg, client, quoted);
+          return;
+        }
+      } catch (err) {
+        console.error("[WA] Reply handler error:", err.message);
+      }
+    }
     await commands.dispatch(msg, client);
   });
 
@@ -143,4 +155,14 @@ async function getGroups() {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-module.exports = { init, isReady, getQR, send, getGroups };
+/**
+ * Register a handler called whenever someone replies to a message sent by the
+ * bot. Runs before the command dispatcher so it takes priority.
+ *
+ * @param {(msg: Message, client: Client, quotedMsg: Message) => Promise<void>} handler
+ */
+function setReplyHandler(handler) {
+  _replyHandler = handler;
+}
+
+module.exports = { init, isReady, getQR, send, getGroups, setReplyHandler };

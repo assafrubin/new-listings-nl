@@ -40,11 +40,13 @@ The session is saved in `auth_data/` and reused on every subsequent start.
 
 ## Environment variables
 
-| Variable      | Default          | Description |
-|---------------|------------------|-------------|
-| `PORT`        | `3001`           | HTTP port |
-| `API_TOKEN`   | _(none)_         | If set, all requests must include `Authorization: Bearer <token>` |
-| `CHROME_PATH` | _(auto)_         | Path to Chrome/Chromium binary; puppeteer's bundled binary is used if unset |
+| Variable        | Default              | Description |
+|-----------------|----------------------|-------------|
+| `PORT`          | `3001`               | HTTP port |
+| `API_TOKEN`     | _(none)_             | If set, all requests must include `Authorization: Bearer <token>` |
+| `CHROME_PATH`   | _(auto)_             | Path to Chrome/Chromium binary; puppeteer's bundled binary is used if unset |
+| `SCANNER_URL`   | `http://localhost:5001` | Base URL of the Python scanner app (for filter webhook calls) |
+| `OPENAI_API_KEY`| _(none)_             | If set, enables voice-message transcription via OpenAI Whisper |
 
 Example:
 
@@ -113,6 +115,29 @@ values to configure on subscribers in the scanner UI).
 
 The service has a built-in command system. Incoming WhatsApp messages are
 matched against registered commands and dispatched automatically.
+
+### Listing reply → filter update
+
+Any reply to a bot-sent listing notification is automatically treated as a
+filter instruction for the customer queries shown in that message. No special
+prefix required.
+
+**Text reply** (English or Hebrew):
+
+> _(reply to a listing)_ אל תציג בתים פינתיים
+
+> _(reply to a listing)_ no ground floor apartments
+
+**Voice message** (English or Hebrew): set `OPENAI_API_KEY` and the bot will
+transcribe it with Whisper before processing.
+
+The bot replies with a confirmation:
+
+> ✅ Filter updated for:
+> **Alice**: Exclude corner houses and ground floor apartments.
+> This will apply to all future listing notifications.
+
+---
 
 ### Built-in commands
 

@@ -36,94 +36,158 @@ const express = require("express");
 const qrcode = require("qrcode");
 const https = require("https");
 const http = require("http");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 const wa = require("./whatsapp");
-const commands = require("./commands");
+// commands.js is still available for !ping / !help and future additions
+require("./commands");
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const API_TOKEN = (process.env.API_TOKEN || "").trim();
-// URL of the Python scanner app — used to call the filter webhook
 const SCANNER_URL = (process.env.SCANNER_URL || "http://localhost:5001").replace(/\/$/, "");
+// Optional: set OPENAI_API_KEY to enable voice-message transcription via Whisper
+const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
 
-// ── "add filter" WhatsApp command ────────────────────────────────────────────
-//
-// Usage: reply to any bot-sent listing notification with a message that starts
-// with "add filter" (case-insensitive) followed by your instruction.
-//
-// Example:
-//   (replying to a listing message)
-//   "add filter: don't show me corner houses"
-//
-// The bot will:
-//   1. Parse the customer name(s) from the quoted message
-//   2. POST to the Python scanner's /api/whatsapp-filter endpoint
-//   3. Reply with a confirmation showing the updated filter
+// ── Voice transcription (OpenAI Whisper) ─────────────────────────────────────
 
-commands.register(
-  "add filter",
-  async (msg, client, args) => {
-    if (!msg.hasQuotedMsg) {
+/**
+ * Transcribe a WhatsApp voice message (ptt / audio) to text.
+ * Returns the transcript string, or null if transcription is not available.
+ */
+async function transcribeVoice(msg) {
+  if (!OPENAI_API_KEY) return null;
+
+  const media = await msg.downloadMedia();
+  if (!media || !media.data) return null;
+
+  // Write audio to a temp file so we can pass it to the Whisper API as a stream
+  const ext = media.mimetype.includes("ogg") ? "ogg" : "mp4";
+  const tmpFile = path.join(os.tmpdir(), `wa_audio_${Date.now()}.${ext}`);
+  fs.writeFileSync(tmpFile, Buffer.from(media.data, "base64"));
+
+  try {
+    const FormData = require("form-data");
+    const form = new FormData();
+    form.append("file", fs.createReadStream(tmpFile), { filename: `audio.${ext}` });
+    form.append("model", "whisper-1");
+    // No language hint → auto-detect (handles Hebrew and English natively)
+
+    const resp = await new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: "api.openai.com",
+          path: "/v1/audio/transcriptions",
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            ...form.getHeaders(),
+          },
+        },
+        (res) => {
+          let data = "";
+          res.on("data", (c) => (data += c));
+          res.on("end", () => resolve(JSON.parse(data)));
+        }
+      );
+      req.on("error", reject);
+      form.pipe(req);
+    });
+
+    return resp.text || null;
+  } finally {
+    try { fs.unlinkSync(tmpFile); } catch (_) {}
+  }
+}
+
+// ── Listing-reply handler ─────────────────────────────────────────────────────
+//
+// Any reply to a message the bot sent is treated as a filter instruction for
+// the customer queries shown in that listing message.
+//
+// Supported input types:
+//   • Text  — sent directly to the LLM (English or Hebrew)
+//   • Voice — transcribed via OpenAI Whisper, then sent to the LLM
+
+wa.setReplyHandler(async (msg, client, quoted) => {
+  const isVoice = msg.type === "ptt" || msg.type === "audio";
+  let filterText = "";
+
+  if (isVoice) {
+    if (!OPENAI_API_KEY) {
       await msg.reply(
-        "Please *reply* to a specific listing notification to set the filter.\n" +
-        "Example: reply to a listing and say: _add filter: no corner houses_"
+        "I received your voice message but voice transcription is not configured.\n" +
+        "Please type your feedback as a text reply to the listing instead."
       );
       return;
     }
-
-    const quoted = await msg.getQuotedMessage();
-
-    // Only act on replies to messages sent by the bot itself
-    if (!quoted.fromMe) {
-      await msg.reply("Please reply to one of my listing messages to set a filter.");
-      return;
-    }
-
-    if (!args) {
-      await msg.reply("Please describe what to filter after 'add filter', e.g.:\n_add filter: no corner houses_");
-      return;
-    }
-
-    const chat = await msg.getChat();
-    const groupId = chat.id._serialized;
-
     try {
-      const result = await callScanner("/api/whatsapp-filter", {
-        group_id:       groupId,
-        quoted_message: quoted.body,
-        filter_text:    args,
-      });
-
-      if (result.error) {
-        await msg.reply(`Could not update filter: ${result.error}`);
+      filterText = await transcribeVoice(msg);
+      if (!filterText) {
+        await msg.reply("I couldn't transcribe your voice message. Please try again or type your feedback.");
         return;
       }
-
-      const lines = result.acknowledgements.map(
-        (a) => `*${a.customer_name}*: _${a.new_filter}_`
-      );
-      await msg.reply(
-        `Filter updated for:\n\n${lines.join("\n\n")}\n\n` +
-        `This filter will apply to all future listing notifications.`
-      );
+      console.log(`[WA] Voice transcribed: "${filterText}"`);
     } catch (err) {
-      console.error("[CMD] add filter error:", err.message);
-      await msg.reply("Error updating filter — is the scanner app running?");
+      console.error("[WA] Transcription error:", err.message);
+      await msg.reply("Transcription failed. Please type your feedback instead.");
+      return;
     }
-  },
-  "Reply to a listing to set a filter: add filter: <description>"
-);
+  } else {
+    filterText = (msg.body || "").trim();
+    if (!filterText) return;
+  }
 
-/** POST JSON to the scanner app and return the parsed response. */
+  const chat = await msg.getChat();
+  const groupId = chat.id._serialized;
+
+  try {
+    const result = await callScanner("/api/whatsapp-filter", {
+      group_id:       groupId,
+      quoted_message: quoted.body,
+      filter_text:    filterText,
+    });
+
+    if (result.error) {
+      console.warn("[WA] Filter webhook error:", result.error);
+      await msg.reply(`Couldn't update filter: ${result.error}`);
+      return;
+    }
+
+    const lines = result.acknowledgements.map(
+      (a) => `*${a.customer_name}*:\n_${a.new_filter}_`
+    );
+    await msg.reply(
+      `✅ Filter updated for:\n\n${lines.join("\n\n")}\n\n` +
+      `This will apply to all future listing notifications.`
+    );
+  } catch (err) {
+    console.error("[WA] Reply handler call error:", err.message);
+    await msg.reply("Error updating filter — is the scanner app running?");
+  }
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** POST JSON to the scanner app and return the parsed response body. */
 function callScanner(path, body) {
   return new Promise((resolve, reject) => {
     const payload = JSON.stringify(body);
     const url = new URL(SCANNER_URL + path);
     const lib = url.protocol === "https:" ? https : http;
     const req = lib.request(
-      { hostname: url.hostname, port: url.port || (url.protocol === "https:" ? 443 : 80),
-        path: url.pathname, method: "POST",
-        headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } },
+      {
+        hostname: url.hostname,
+        port: url.port || (url.protocol === "https:" ? 443 : 80),
+        path: url.pathname,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": Buffer.byteLength(payload),
+        },
+      },
       (res) => {
         let data = "";
         res.on("data", (c) => (data += c));
