@@ -1,0 +1,10 @@
+# Local config with secrets — never commit
+config.json
+
+# Runtime artifacts
+*.log
+*.db
+__pycache__/
+.venv/
+whatsapp-service/auth_data/
+whatsapp-service/node_modules/
