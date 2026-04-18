@@ -28,6 +28,8 @@ let _isReady = false;
 let _latestQR = null;
 /** Optional async (msg, client, quotedMsg) => void — set via setReplyHandler() */
 let _replyHandler = null;
+/** IDs of messages sent by this bot session — excluded from message_create processing. */
+const _sentByBot = new Set();
 
 // ── Puppeteer / Chrome config ─────────────────────────────────────────────────
 
@@ -47,6 +49,9 @@ function puppeteerArgs() {
     "--disable-accelerated-2d-canvas",
     "--no-first-run",
     "--disable-gpu",
+    "--disable-background-timer-throttling",
+    "--disable-backgrounding-occluded-windows",
+    "--disable-renderer-backgrounding",
   ];
   const opts = { headless: true, args };
   if (process.env.CHROME_PATH) {
@@ -58,6 +63,12 @@ function puppeteerArgs() {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 async function init() {
+  // Destroy previous client (and its Chrome process) before creating a fresh one.
+  if (client) {
+    try { await client.destroy(); } catch (_) {}
+    client = null;
+  }
+
   client = new Client({
     authStrategy: new LocalAuth({
       dataPath: path.join(__dirname, "auth_data"),
@@ -102,7 +113,9 @@ async function init() {
     setTimeout(() => init(), 5000);
   });
 
-  client.on("message", async (msg) => {
+  /** Shared handler for both incoming (message) and self-sent (message_create) messages. */
+  async function handleMessage(msg) {
+    console.log(`[WA] Incoming message from ${msg.from}: type=${msg.type} hasQuote=${msg.hasQuotedMsg} fromMe=${msg.fromMe}`);
     // Replies to bot messages are handled by the listing-reply handler (if set)
     // before reaching the command dispatcher — this is how filter updates work.
     if (_replyHandler && msg.hasQuotedMsg) {
@@ -117,6 +130,21 @@ async function init() {
       }
     }
     await commands.dispatch(msg, client);
+  }
+
+  // "message" fires for messages from other accounts.
+  client.on("message", handleMessage);
+
+  // "message_create" fires for all messages including your own phone's replies
+  // (when the bot is a linked device on the subscriber's own WhatsApp account).
+  // Skip messages originated by this web session: WhatsApp Web assigns IDs starting
+  // with "3EB" to messages sent from the browser; phone-originated messages have
+  // a different format so we can reliably tell them apart.
+  client.on("message_create", async (msg) => {
+    if (!msg.fromMe) return;                          // already handled by "message"
+    const id = msg.id && msg.id.id;
+    if (id && id.startsWith("3EB")) return;           // sent by this web session, skip
+    await handleMessage(msg);
   });
 
   await client.initialize();
@@ -132,6 +160,18 @@ function getQR() {
   return _latestQR;
 }
 
+/** True when the error is a stale Puppeteer frame (WhatsApp Web reloaded). */
+function isFrameDetached(err) {
+  return err && typeof err.message === "string" && err.message.includes("detached Frame");
+}
+
+/** Mark not-ready and schedule a re-init if the page frame was detached. */
+function handleFrameDetached() {
+  console.log("[WA] Detached frame detected — WhatsApp Web reloaded. Reinitialising in 3 s…");
+  _isReady = false;
+  setTimeout(() => init(), 3000);
+}
+
 /**
  * Send a text message to a chat or group.
  * @param {string} chatId  e.g. "120363407400776027@g.us" or "31612345678@c.us"
@@ -139,7 +179,12 @@ function getQR() {
  */
 async function send(chatId, text) {
   if (!_isReady) throw new Error("WhatsApp not ready");
-  await client.sendMessage(chatId, text);
+  try {
+    await client.sendMessage(chatId, text);
+  } catch (err) {
+    if (isFrameDetached(err)) { handleFrameDetached(); }
+    throw err;
+  }
 }
 
 /**
@@ -148,11 +193,16 @@ async function send(chatId, text) {
  */
 async function getGroups() {
   if (!_isReady) throw new Error("WhatsApp not ready");
-  const chats = await client.getChats();
-  return chats
-    .filter((c) => c.isGroup)
-    .map((c) => ({ id: c.id._serialized, name: c.name, participants: c.participants?.length ?? 0 }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+  try {
+    const chats = await client.getChats();
+    return chats
+      .filter((c) => c.isGroup)
+      .map((c) => ({ id: c.id._serialized, name: c.name, participants: c.participants?.length ?? 0 }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    if (isFrameDetached(err)) { handleFrameDetached(); }
+    throw err;
+  }
 }
 
 /**

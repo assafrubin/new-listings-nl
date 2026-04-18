@@ -47,7 +47,7 @@ require("./commands");
 
 const PORT = parseInt(process.env.PORT || "3001", 10);
 const API_TOKEN = (process.env.API_TOKEN || "").trim();
-const SCANNER_URL = (process.env.SCANNER_URL || "http://localhost:5001").replace(/\/$/, "");
+const SCANNER_URL = (process.env.SCANNER_URL || "http://127.0.0.1:5001").replace(/\/$/, "");
 // Optional: set OPENAI_API_KEY to enable voice-message transcription via Whisper
 const OPENAI_API_KEY = (process.env.OPENAI_API_KEY || "").trim();
 

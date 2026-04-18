@@ -242,6 +242,26 @@ def update_query_filter(query_id: int, free_text_filter: str):
         )
 
 
+def update_customer_query(query_id: int, customer_name: str, cities: list,
+                          min_price, max_price, min_rooms,
+                          student: bool, free_text_filter: str):
+    """Update all editable fields of a customer query."""
+    import json as _json
+    init_db()
+    cities_json = _json.dumps([c.strip().lower() for c in cities if c.strip()])
+    with _conn() as c:
+        c.execute(
+            """UPDATE customer_queries
+               SET customer_name=?, cities=?, min_price=?, max_price=?,
+                   min_rooms=?, student=?, free_text_filter=?
+               WHERE id=?""",
+            (customer_name.strip(), cities_json,
+             min_price or None, max_price or None, min_rooms or None,
+             1 if student else 0, free_text_filter.strip(),
+             query_id),
+        )
+
+
 def get_subscribers_with_queries() -> list:
     import json as _json
     init_db()

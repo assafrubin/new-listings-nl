@@ -1054,6 +1054,32 @@ class TestDBFreeTextFilter(unittest.TestCase):
         subs = self.db.get_subscribers_with_queries()
         self.assertEqual(subs[0]["queries"][0]["free_text_filter"], "")
 
+    def test_update_customer_query_all_fields(self):
+        sub_id = self.db.add_subscriber("t5@example.com", "T", "T")
+        q_id = self.db.add_customer_query(sub_id, "Eve", ["amsterdam"], 1000, 2000, 2)
+        self.db.update_customer_query(
+            q_id, "Eve Updated", ["rotterdam", "den haag"],
+            1500, 2500, 3, True, "no ground floor"
+        )
+        subs = self.db.get_subscribers_with_queries()
+        q = subs[0]["queries"][0]
+        self.assertEqual(q["customer_name"], "Eve Updated")
+        self.assertIn("rotterdam", q["cities"])
+        self.assertIn("den haag", q["cities"])
+        self.assertEqual(q["min_price"], 1500)
+        self.assertEqual(q["max_price"], 2500)
+        self.assertEqual(q["min_rooms"], 3)
+        self.assertEqual(q["student"], 1)
+        self.assertEqual(q["free_text_filter"], "no ground floor")
+
+    def test_update_customer_query_clears_filter(self):
+        sub_id = self.db.add_subscriber("t6@example.com", "T", "T")
+        q_id = self.db.add_customer_query(sub_id, "Frank", ["amsterdam"], None, None, None,
+                                          False, "old filter")
+        self.db.update_customer_query(q_id, "Frank", ["amsterdam"], None, None, None, False, "")
+        subs = self.db.get_subscribers_with_queries()
+        self.assertEqual(subs[0]["queries"][0]["free_text_filter"], "")
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Scanner — WhatsApp group notifications
@@ -1735,6 +1761,46 @@ class TestFlaskRoutes(unittest.TestCase):
             "filter_text": "no corner houses",
         })
         self.assertEqual(r.status_code, 400)
+
+    def test_edit_query_route_updates_all_fields(self):
+        sub_id = self.db.add_subscriber("eq1@example.com", "EQ1", "Test")
+        q_id = self.db.add_customer_query(sub_id, "Alice", ["amsterdam"], 1000, 2000, 2)
+        r = self.client.post(f"/queries/{q_id}/edit", data={
+            "customer_name": "Alice Edited",
+            "cities": ["rotterdam"],
+            "min_price": "1500",
+            "max_price": "2500",
+            "min_rooms": "3",
+            "student": "1",
+            "free_text_filter": "no ground floor",
+        })
+        self.assertEqual(r.status_code, 200)
+        data = json.loads(r.data)
+        self.assertTrue(data.get("ok"))
+        subs = self.db.get_subscribers_with_queries()
+        sub = next(s for s in subs if s["id"] == sub_id)
+        q = sub["queries"][0]
+        self.assertEqual(q["customer_name"], "Alice Edited")
+        self.assertIn("rotterdam", q["cities"])
+        self.assertEqual(q["min_price"], 1500.0)
+        self.assertEqual(q["student"], 1)
+        self.assertEqual(q["free_text_filter"], "no ground floor")
+
+    def test_edit_query_route_missing_name_returns_400(self):
+        sub_id = self.db.add_subscriber("eq2@example.com", "EQ2", "Test")
+        q_id = self.db.add_customer_query(sub_id, "Bob", ["amsterdam"], None, None, None)
+        r = self.client.post(f"/queries/{q_id}/edit", data={
+            "customer_name": "",
+            "cities": ["amsterdam"],
+        })
+        self.assertEqual(r.status_code, 400)
+
+    def test_edit_query_shows_edit_button_in_ui(self):
+        sub_id = self.db.add_subscriber("eq3@example.com", "EQ3", "Test")
+        self.db.add_customer_query(sub_id, "Carol", ["amsterdam"], None, None, None)
+        r = self.client.get("/subscribers")
+        self.assertIn(b"edit-query-btn", r.data)
+        self.assertIn(b"query-edit-", r.data)
 
 
 if __name__ == "__main__":

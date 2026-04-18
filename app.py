@@ -781,9 +781,22 @@ SUBSCRIBERS_TEMPLATE = """
     .pill-student { background: #fef3c7; color: #92400e; }
     .pill-filter  { background: #ede9fe; color: #5b21b6; cursor: default; }
     .filter-text  { font-size:.82rem; color:#6b7280; padding:2px 0 4px 2px; font-style:italic; }
-    .filter-edit-btn { font-size:.78rem; color:#6366f1; background:none; border:none; cursor:pointer; padding:2px 0 6px; }
-    .filter-edit-btn:hover { text-decoration:underline; }
+    .edit-query-btn { font-size:.78rem; color:#6366f1; background:none; border:none; cursor:pointer; padding:2px 0 6px; }
+    .edit-query-btn:hover { text-decoration:underline; }
     .empty-queries { font-size: .83rem; color: #9ca3af; padding: 4px 0 10px; }
+    .query-edit-form { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:14px 16px; margin:6px 0; display:none; }
+    .query-edit-form.open { display:block; }
+
+    /* Toast notifications */
+    #toast-container { position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; flex-direction:column; gap:10px; }
+    .toast {
+      min-width:240px; max-width:380px; padding:14px 18px; border-radius:10px;
+      font-size:.9rem; font-weight:500; color:#fff; box-shadow:0 4px 16px rgba(0,0,0,.15);
+      animation: toast-in .25s ease; pointer-events:none;
+    }
+    .toast-success { background:#16a34a; }
+    .toast-error   { background:#dc2626; }
+    @keyframes toast-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
 
     /* WhatsApp group row */
     .wa-row {
@@ -978,20 +991,55 @@ SUBSCRIBERS_TEMPLATE = """
                 {% if q.free_text_filter %}
                   <div class="filter-text">{{ q.free_text_filter }}</div>
                 {% endif %}
-                <div class="filter-edit" id="filter-edit-{{ q.id }}" style="display:none">
-                  <form method="POST" action="/queries/{{ q.id }}/filter">
-                    <textarea name="free_text_filter" rows="2"
-                      style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.85rem;resize:vertical;box-sizing:border-box"
-                      placeholder="Describe what to exclude…">{{ q.free_text_filter }}</textarea>
-                    <div style="margin-top:6px;display:flex;gap:8px">
-                      <button type="submit" class="btn-sm">Save filter</button>
-                      <button type="button" class="cancel-btn" onclick="document.getElementById('filter-edit-{{ q.id }}').style.display='none'">Cancel</button>
+                <button class="edit-query-btn" onclick="toggleQueryEdit({{ q.id }})">✎ Edit</button>
+                <div class="query-edit-form" id="query-edit-{{ q.id }}">
+                  <form onsubmit="saveQueryEdit(event, {{ q.id }})">
+                    <div class="form-group">
+                      <label>Customer name</label>
+                      <input type="text" name="customer_name" required value="{{ q.customer_name }}">
+                    </div>
+                    <div class="form-group" style="margin-top:10px">
+                      <label>Cities</label>
+                      <div class="city-checks">
+                        {% for city in scope_cities %}
+                          <label class="check-item">
+                            <input type="checkbox" name="cities" value="{{ city }}" {{ 'checked' if city in q.cities else '' }}>
+                            {{ city | title }}
+                          </label>
+                        {% endfor %}
+                      </div>
+                    </div>
+                    <div class="qform-grid">
+                      <div class="form-group">
+                        <label>Min price (€/mo)</label>
+                        <input type="number" name="min_price" placeholder="e.g. 1000" min="0" value="{{ q.min_price | int if q.min_price else '' }}">
+                      </div>
+                      <div class="form-group">
+                        <label>Max price (€/mo)</label>
+                        <input type="number" name="max_price" placeholder="e.g. 2500" min="0" value="{{ q.max_price | int if q.max_price else '' }}">
+                      </div>
+                      <div class="form-group">
+                        <label>Min rooms</label>
+                        <input type="number" name="min_rooms" placeholder="e.g. 2" min="1" max="10" value="{{ q.min_rooms | int if q.min_rooms else '' }}">
+                      </div>
+                    </div>
+                    <div class="form-group" style="margin-top:10px">
+                      <label class="check-item" style="font-weight:600">
+                        <input type="checkbox" name="student" value="1" {{ 'checked' if q.student else '' }}>
+                        Student? <span style="font-weight:400;color:#6b7280;font-size:.85rem">(show student-only listings)</span>
+                      </label>
+                    </div>
+                    <div class="form-group" style="margin-top:10px">
+                      <label style="font-weight:600;display:block;margin-bottom:4px">Free-text filter <span style="font-weight:400;color:#6b7280;font-size:.85rem">(optional)</span></label>
+                      <textarea name="free_text_filter" rows="2" placeholder='e.g. "Exclude corner houses"'
+                        style="width:100%;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px;font-size:.9rem;resize:vertical;box-sizing:border-box">{{ q.free_text_filter }}</textarea>
+                    </div>
+                    <div class="qform-actions">
+                      <button type="submit" class="btn-sm">Save changes</button>
+                      <button type="button" class="cancel-btn" onclick="toggleQueryEdit({{ q.id }})">Cancel</button>
                     </div>
                   </form>
                 </div>
-                <button class="filter-edit-btn" onclick="document.getElementById('filter-edit-{{ q.id }}').style.display=document.getElementById('filter-edit-{{ q.id }}').style.display==='none'?'block':'none'">
-                  {{ 'Edit filter' if q.free_text_filter else '+ Add filter' }}
-                </button>
               {% endfor %}
             {% endif %}
 
@@ -1051,6 +1099,7 @@ SUBSCRIBERS_TEMPLATE = """
     {% endif %}
   </div>
 
+  <div id="toast-container"></div>
   <script>
     function toggleQueryForm(btn) {
       const form = btn.nextElementSibling;
@@ -1061,6 +1110,36 @@ SUBSCRIBERS_TEMPLATE = """
       const display = document.getElementById('wa-display-' + subId);
       const isOpen  = form.classList.toggle('open');
       if (display) display.style.display = isOpen ? 'none' : '';
+    }
+    function toggleQueryEdit(queryId) {
+      const el = document.getElementById('query-edit-' + queryId);
+      el.classList.toggle('open');
+    }
+    function showToast(message, type) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-' + type;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+    async function saveQueryEdit(event, queryId) {
+      event.preventDefault();
+      const form = event.target;
+      const data = new FormData(form);
+      try {
+        const resp = await fetch('/queries/' + queryId + '/edit', { method: 'POST', body: data });
+        const json = await resp.json();
+        if (json.ok) {
+          showToast('Query saved successfully.', 'success');
+          document.getElementById('query-edit-' + queryId).classList.remove('open');
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          showToast('Error: ' + (json.error || 'Could not save.'), 'error');
+        }
+      } catch (err) {
+        showToast('Network error — could not save.', 'error');
+      }
     }
   </script>
 </body>
@@ -1159,6 +1238,29 @@ def update_query_filter(query_id):
     db.update_query_filter(query_id, free_text_filter)
     msg = "Filter updated." if free_text_filter else "Filter cleared."
     return redirect(url_for("subscribers", flash=msg))
+
+
+@app.route("/queries/<int:query_id>/edit", methods=["POST"])
+def edit_query(query_id):
+    """AJAX endpoint to update all fields of a customer query. Returns JSON."""
+    customer_name    = request.form.get("customer_name", "").strip()
+    cities           = request.form.getlist("cities") or _load_cities()
+    min_price        = request.form.get("min_price") or None
+    max_price        = request.form.get("max_price") or None
+    min_rooms        = request.form.get("min_rooms") or None
+    student          = request.form.get("student") == "1"
+    free_text_filter = request.form.get("free_text_filter", "").strip()
+    if not customer_name:
+        return jsonify({"error": "customer_name is required"}), 400
+    db.update_customer_query(
+        query_id, customer_name, cities,
+        float(min_price) if min_price else None,
+        float(max_price) if max_price else None,
+        int(min_rooms)   if min_rooms else None,
+        student,
+        free_text_filter,
+    )
+    return jsonify({"ok": True})
 
 
 @app.route("/api/whatsapp-filter", methods=["POST"])
