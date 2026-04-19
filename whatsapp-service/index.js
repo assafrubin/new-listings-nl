@@ -61,15 +61,36 @@ const OPENAI_API_KEY = loadOpenAiKey();
 
 // ── Voice transcription (OpenAI Whisper) ─────────────────────────────────────
 
-// Whisper prompt biases transcription toward Amsterdam rental vocabulary so
-// Dutch proper nouns (parks, neighbourhoods, streets) survive Hebrew speech.
+// Whisper prompt: comma-separated proper nouns across all 5 cities.
+// Whisper uses this as a vocabulary prior — the more specific proper nouns
+// listed here, the less likely it is to invent phonetically similar nonsense.
 const WHISPER_PROMPT =
-  "Amsterdam rental filter. Neighbourhoods and landmarks: Vondelpark, Jordaan, " +
-  "De Pijp, Oud-Zuid, Oud-West, Centrum, Oost, West, Noord, Zuid, Amstelveen, " +
-  "Museumplein, Leidseplein, Rembrandtplein, Waterlooplein, Frederiksplein, " +
-  "Sarphatipark, Beatrixpark, Westerpark, Oosterpark, Amstelpark, " +
-  "Haarlemmerdijk, Utrechtsestraat, Ceintuurbaan, Overtoom, Kinkerstraat. " +
-  "Directions: north, south, east, west, noordkant, zuidkant.";
+  // Amsterdam — neighborhoods, parks, streets
+  "Vondelpark, Jordaan, De Pijp, Oud-Zuid, Oud-West, Oud-Noord, Centrum, " +
+  "IJburg, Zeeburg, Buitenveldert, Rivierenbuurt, Zuidas, Slotervaart, " +
+  "Geuzenveld, Indische Buurt, Dapperbuurt, Plantage, Watergraafsmeer, " +
+  "Museumplein, Leidseplein, Rembrandtplein, Frederiksplein, Sarphatipark, " +
+  "Beatrixpark, Westerpark, Oosterpark, Amstelpark, Amstel, " +
+  "Haarlemmerdijk, Utrechtsestraat, Ceintuurbaan, Overtoom, Kinkerstraat, " +
+  "A10, S100, S108, S111, " +
+  // Amstelveen — neighborhoods and key road
+  "Amstelveen, Stadshart, Middenhoven, Westwijk, Legmeer, Bankras, Kostverloren, " +
+  "Amstelveenseweg, A9, " +
+  // Utrecht — neighborhoods, parks, roads
+  "Utrecht, Binnenstad, Lombok, Kanaleneiland, Leidsche Rijn, Overvecht, " +
+  "Houten, Zeist, Griftpark, Wilhelminapark, Amelisweerd, " +
+  "Wittevrouwensingel, Catharijnesingel, Maliesingel, Vredenburg, A2, A12, A27, " +
+  // Rotterdam — neighborhoods, parks, roads
+  "Rotterdam, Kralingen, Hillegersberg, Delfshaven, Feijenoord, IJsselmonde, " +
+  "Schiedam, Capelle aan den IJssel, Kralingse Bos, Vroesenpark, Zuiderpark, " +
+  "Erasmusbrug, Maastunnel, A20, A16, " +
+  // Den Haag — neighborhoods, parks, roads
+  "Den Haag, Scheveningen, Statenkwartier, Benoordenhout, Bezuidenhout, " +
+  "Segbroek, Escamp, Haagse Hout, Loosduinen, Leidschenveen, Ypenburg, " +
+  "Haagse Bos, Westbroekpark, Clingendael, " +
+  "Laan van Meerdervoort, Fahrenheitstraat, Leyweg, A4, A13. " +
+  // Common filter vocabulary
+  "Directions: north, south, east, west, noordkant, zuidkant, ten noorden, ten zuiden.";
 
 /**
  * Transcribe a WhatsApp voice message (ptt / audio) to text, then run a GPT
@@ -143,11 +164,23 @@ async function correctTranscript(transcript) {
         {
           role: "system",
           content:
-            "You correct speech-to-text transcripts for an Amsterdam rental search app. " +
-            "The user speaks Hebrew but may mention Dutch place names, street names, or neighbourhoods. " +
-            "Fix any misheard proper nouns (e.g. 'Bundell Park' → 'Vondelpark'), " +
-            "correct obvious directional errors, and return only the corrected text in English. " +
-            "Do not add explanation. If the transcript is already correct, return it as-is translated to English.",
+            "You correct speech-to-text transcripts for a Dutch rental search app. " +
+            "The user speaks Hebrew but mentions Dutch place names, streets, and roads. " +
+            "Fix misheard proper nouns using the geographic reference below. " +
+            "Correct obvious directional errors. Return only the corrected English text — no explanation.\n\n" +
+            "GEOGRAPHIC REFERENCE:\n" +
+            "Amsterdam: neighborhoods — Jordaan, De Pijp, Oud-Zuid, Oud-West, Centrum, IJburg, Buitenveldert, Rivierenbuurt, Zuidas, Indische Buurt, Dapperbuurt, Plantage, Watergraafsmeer, Slotervaart, Geuzenveld. " +
+            "Parks — Vondelpark, Beatrixpark, Westerpark, Oosterpark, Sarphatipark, Amstelpark. " +
+            "Roads/squares — A10 (ring road), Museumplein, Leidseplein, Rembrandtplein, Overtoom, Ceintuurbaan, Utrechtsestraat, Haarlemmerdijk, Kinkerstraat.\n" +
+            "Amstelveen: neighborhoods — Middenhoven, Westwijk, Legmeer, Bankras, Stadshart. " +
+            "Key road — A9 (major highway running east-west through Amstelveen; 'south of A9' means the southern part of Amstelveen). " +
+            "Road — Amstelveenseweg (connects Amsterdam to Amstelveen).\n" +
+            "Utrecht: neighborhoods — Lombok, Kanaleneiland, Leidsche Rijn, Overvecht, Binnenstad. " +
+            "Parks — Wilhelminapark, Griftpark, Amelisweerd. Roads — A2, A12, A27, Catharijnesingel, Maliesingel.\n" +
+            "Rotterdam: neighborhoods — Kralingen, Hillegersberg, Delfshaven, Feijenoord. " +
+            "Parks — Kralingse Bos, Vroesenpark. Roads — A20, A16, Erasmusbrug.\n" +
+            "Den Haag: neighborhoods — Scheveningen, Statenkwartier, Benoordenhout, Bezuidenhout, Segbroek, Haagse Hout, Loosduinen. " +
+            "Parks — Haagse Bos, Westbroekpark, Clingendael. Roads — A4, A13, Laan van Meerdervoort.",
         },
         { role: "user", content: transcript },
       ],

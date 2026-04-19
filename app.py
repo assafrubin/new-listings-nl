@@ -1293,8 +1293,13 @@ def whatsapp_filter_webhook():
     if not filter_text:
         return jsonify({"error": "filter_text is required"}), 400
 
-    # Parse customer names from the bot message (format: "— *CustomerName*")
-    customer_names_found = _re.findall(r"—\s+\*(.+?)\*", quoted_message)
+    # Detect if the quoted message is a filter-update acknowledgement.
+    # Ack messages start with "✅ Filter updated" and list customers as "*Name*:"
+    # Listing messages embed customers as "— *Name*".
+    is_ack_reply = quoted_message.startswith("✅ Filter updated")
+    names_from_listing = _re.findall(r"—\s+\*(.+?)\*", quoted_message)
+    names_from_ack     = _re.findall(r"(?:^|\n)\*(.+?)\*\s*:", quoted_message)
+    customer_names_found = list({n for n in names_from_listing + names_from_ack})
     if not customer_names_found:
         return jsonify({"error": "Could not identify any customer from the quoted message"}), 400
 
@@ -1322,7 +1327,7 @@ def whatsapp_filter_webhook():
     acknowledgements = []
     for q in targets:
         existing = q.get("free_text_filter", "")
-        new_filter = merge_free_text_filter(existing, filter_text, api_key)
+        new_filter = merge_free_text_filter(existing, filter_text, api_key, is_correction=is_ack_reply)
         db.update_query_filter(q["id"], new_filter)
         acknowledgements.append({
             "customer_name": q["customer_name"],

@@ -397,10 +397,13 @@ def check_free_text_filter(description: str, free_text_filter: str, api_key: str
         return True   # on error, include the listing
 
 
-def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: str) -> str:
+def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: str, is_correction: bool = False) -> str:
     """
     Given an existing filter and a new natural-language instruction from WhatsApp,
     return a merged, clean filter description.
+
+    is_correction=True: the user is fixing a detail in the existing filter
+    (e.g. correcting a misrecognized place name) rather than adding a new rule.
     """
     if not api_key:
         combined = f"{existing_filter}\n{new_instruction}".strip()
@@ -408,15 +411,26 @@ def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: 
     try:
         client = OpenAI(api_key=api_key)
         existing_part = f"Current filter:\n{existing_filter}" if existing_filter.strip() else "Current filter: (none)"
+        if is_correction:
+            task = (
+                "The user is correcting a specific detail in the existing filter — most likely a "
+                "misrecognized or misspelled place name, street, or direction. Apply only the "
+                "correction the user specifies; keep everything else in the filter unchanged. "
+                "The correction may be phrased like 'X not Y' or 'it's X, not Y'."
+            )
+        else:
+            task = (
+                "The user is adding or refining a rental listing preference. "
+                "Incorporate the new instruction with the existing filter (if any)."
+            )
         prompt = (
-            "A user is refining their rental listing preferences.\n"
-            "The user's instruction may be in English or Hebrew — interpret it correctly regardless of language.\n\n"
+            f"A user is updating their rental listing filter.\n"
+            f"The user's message may be in English or Hebrew — interpret it correctly.\n\n"
             f"{existing_part}\n\n"
-            f"New instruction from the user:\n{new_instruction}\n\n"
-            "Write a single, clear filter description in English that incorporates the new instruction "
-            "with the existing one (if any). The filter should describe what types of listings "
-            "to EXCLUDE. Be concise (1-4 sentences). "
-            "Reply with only the filter text, no preamble."
+            f"User message:\n{new_instruction}\n\n"
+            f"{task}\n\n"
+            "Write a single, clear filter description in English describing what listings to EXCLUDE. "
+            "Be concise (1-4 sentences). Reply with only the filter text, no preamble."
         )
         response = client.chat.completions.create(
             model="gpt-4o-mini",
