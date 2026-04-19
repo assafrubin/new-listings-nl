@@ -412,32 +412,37 @@ def merge_free_text_filter(existing_filter: str, new_instruction: str, api_key: 
         client = OpenAI(api_key=api_key)
         existing_part = f"Current filter:\n{existing_filter}" if existing_filter.strip() else "Current filter: (none)"
         if is_correction:
-            task = (
-                "The user is correcting a specific detail in the existing filter — most likely a "
-                "misrecognized or misspelled place name, street, or direction. Apply only the "
-                "correction the user specifies; keep everything else in the filter unchanged. "
-                "The correction may be phrased like 'X not Y' or 'it's X, not Y'."
+            prompt = (
+                f"A user is correcting a misrecognized word or phrase in their rental filter.\n"
+                f"The user's message may be in English or Hebrew — interpret it correctly.\n\n"
+                f"{existing_part}\n\n"
+                f"User correction:\n{new_instruction}\n\n"
+                "Task: find the incorrect word or phrase in the existing filter that the user is referring to, "
+                "replace it with the correct term, and output the updated filter with NOTHING ELSE changed. "
+                "Do NOT append the user's message as a new sentence — only fix the specific word or phrase inline.\n\n"
+                "Example: filter says 'exclude listings north of Buntel Park', user says 'Vondelpark, not Buntel Park' "
+                "→ output 'Exclude listings north of Vondelpark'.\n\n"
+                "Reply with only the corrected filter text, no preamble."
             )
         else:
-            task = (
-                "The user is adding or refining a rental listing preference. "
-                "Incorporate the new instruction with the existing filter (if any)."
+            prompt = (
+                f"A user is updating their rental listing filter.\n"
+                f"The user's message may be in English or Hebrew — interpret it correctly.\n\n"
+                f"{existing_part}\n\n"
+                f"New instruction from the user:\n{new_instruction}\n\n"
+                "Incorporate the new instruction with the existing filter (if any). "
+                "Write a single, clear filter description in English describing what listings to EXCLUDE. "
+                "Be concise (1-4 sentences). Reply with only the filter text, no preamble."
             )
-        prompt = (
-            f"A user is updating their rental listing filter.\n"
-            f"The user's message may be in English or Hebrew — interpret it correctly.\n\n"
-            f"{existing_part}\n\n"
-            f"User message:\n{new_instruction}\n\n"
-            f"{task}\n\n"
-            "Write a single, clear filter description in English describing what listings to EXCLUDE. "
-            "Be concise (1-4 sentences). Reply with only the filter text, no preamble."
-        )
+        log.info(f"Filter merge | is_correction={is_correction} | existing={existing_filter!r} | instruction={new_instruction!r}")
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             max_tokens=200,
             messages=[{"role": "user", "content": prompt}],
         )
-        return response.choices[0].message.content.strip()
+        result = response.choices[0].message.content.strip()
+        log.info(f"Filter merge | result={result!r}")
+        return result
     except Exception as e:
         log.warning(f"Filter merge API error: {e}")
         return f"{existing_filter}\n{new_instruction}".strip()

@@ -1296,7 +1296,7 @@ def whatsapp_filter_webhook():
     # Detect if the quoted message is a filter-update acknowledgement.
     # Ack messages start with "✅ Filter updated" and list customers as "*Name*:"
     # Listing messages embed customers as "— *Name*".
-    is_ack_reply = quoted_message.startswith("✅ Filter updated")
+    is_ack_reply = "Filter updated" in quoted_message
     names_from_listing = _re.findall(r"—\s+\*(.+?)\*", quoted_message)
     names_from_ack     = _re.findall(r"(?:^|\n)\*(.+?)\*\s*:", quoted_message)
     customer_names_found = list({n for n in names_from_listing + names_from_ack})
@@ -1316,12 +1316,15 @@ def whatsapp_filter_webhook():
     if not targets:
         return jsonify({"error": "No matching customer queries found for this group"}), 404
 
-    # Load API key for LLM filter merging
-    try:
-        cfg = _json.load(open(CONFIG_FILE))
-    except Exception:
-        cfg = {}
-    api_key = cfg.get("openai_api_key", "").strip()
+    # Load API key — env var takes priority, falls back to config.json
+    import os as _os
+    api_key = _os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        try:
+            cfg = _json.load(open(CONFIG_FILE))
+        except Exception:
+            cfg = {}
+        api_key = cfg.get("openai_api_key", "").strip()
 
     from scanner import merge_free_text_filter
     acknowledgements = []
