@@ -18,6 +18,7 @@ import os
 import re
 import smtplib
 import logging
+import logging.handlers
 import urllib.parse
 import time
 from datetime import datetime
@@ -45,7 +46,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",
     handlers=[
-        logging.FileHandler(LOG_FILE),
+        logging.handlers.RotatingFileHandler(
+            LOG_FILE, maxBytes=10 * 1024 * 1024, backupCount=5
+        ),
         logging.StreamHandler(),
     ],
 )

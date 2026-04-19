@@ -1333,7 +1333,49 @@ def whatsapp_filter_webhook():
     return jsonify({"acknowledgements": acknowledgements})
 
 
+@app.route("/api/health")
+def api_health():
+    import json as _json
+    import urllib.request
+
+    with _state_lock:
+        scheduler = {
+            "running": _state["running"],
+            "next_run_at": _state["next_run_at"],
+            "started_at": _state["started_at"],
+        }
+
+    # last scan from DB
+    runs = db.get_scan_runs(limit=1)
+    last_scan = runs[0]["ran_at"] if runs else None
+
+    # whatsapp-service health (best-effort, 2 s timeout)
+    wa_status = {"reachable": False}
+    try:
+        cfg = _json.load(open(CONFIG_FILE))
+        wa_url = cfg.get("notifications", {}).get(
+            "whatsapp_service_url", "http://localhost:3001"
+        )
+        token = cfg.get("notifications", {}).get("whatsapp_service_token", "")
+        req = urllib.request.Request(
+            f"{wa_url}/health",
+            headers={"Authorization": f"Bearer {token}"} if token else {},
+        )
+        with urllib.request.urlopen(req, timeout=2) as r:
+            wa_status = _json.loads(r.read())
+            wa_status["reachable"] = True
+    except Exception:
+        pass
+
+    return jsonify({
+        "ok": True,
+        "scheduler": scheduler,
+        "last_scan_at": last_scan,
+        "whatsapp": wa_status,
+    })
+
+
 if __name__ == "__main__":
     print("Scanner UI running at http://localhost:5001")
     start_scheduler()
-    app.run(port=5001, debug=True, use_reloader=False)
+    app.run(port=5001, debug=False, use_reloader=False)
